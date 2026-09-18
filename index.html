@@ -145,6 +145,13 @@ function isToday(ts){
   const d = new Date(ts), now = new Date();
   return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth() && d.getDate()===now.getDate();
 }
+function pad2(n){ return String(n).padStart(2,'0'); }
+function dateStr(ts){
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+function todayStr(){ return dateStr(Date.now()); }
+function topicDateStr(topic){ return topic.scheduledDate || dateStr(topic.createdAt); }
 
 /* ---------------- 학생: 주제 목록 ---------------- */
 function renderTopicList(){
@@ -181,7 +188,7 @@ function renderTopicList(){
     }
 
     const ids = Object.keys(topics)
-      .filter(id => isToday(topics[id].createdAt))
+      .filter(id => topicDateStr(topics[id]) === todayStr())
       .sort((a,b)=> (topics[b].createdAt||0)-(topics[a].createdAt||0));
     const box = document.getElementById('topicListBox');
     if(!ids.length){ box.innerHTML = `<div class="empty">오늘 등록된 주제가 아직 없어요. 선생님을 기다려주세요!</div>`; return; }
@@ -478,6 +485,8 @@ function renderTeacherHome(){
   app.innerHTML = `
     <div class="card">
       <h2>📌 주제 추가</h2>
+      <label>날짜 (이 날에 학생 화면에 떠요)</label>
+      <input type="date" id="newTopicDateInput" value="${todayStr()}">
       <label>주제</label>
       <input type="text" id="newTopicInput" placeholder="예: 내가 화가 났을 때 어떻게 했나요?">
       <label>글쓰기 설명 (선택, 학생 글쓰기 화면 위쪽에 보여요)</label>
@@ -492,10 +501,12 @@ function renderTeacherHome(){
   document.getElementById('addTopicBtn').onclick = () => {
     const title = document.getElementById('newTopicInput').value.trim();
     const description = document.getElementById('newTopicDescInput').value.trim();
+    const scheduledDate = document.getElementById('newTopicDateInput').value || todayStr();
     if(!title) return;
-    db.ref(`${DB_ROOT}/topics`).push({title, description, createdAt: Date.now()}).then(()=>{
+    db.ref(`${DB_ROOT}/topics`).push({title, description, scheduledDate, createdAt: Date.now()}).then(()=>{
       document.getElementById('newTopicInput').value='';
       document.getElementById('newTopicDescInput').value='';
+      document.getElementById('newTopicDateInput').value = todayStr();
       loadTeacherTopics();
     });
   };
@@ -505,19 +516,24 @@ function renderTeacherHome(){
 function loadTeacherTopics(){
   db.ref(`${DB_ROOT}/topics`).once('value').then(snap => {
     const topics = snap.val() || {};
-    const ids = Object.keys(topics).sort((a,b)=> (topics[b].createdAt||0)-(topics[a].createdAt||0));
+    const ids = Object.keys(topics).sort((a,b)=> topicDateStr(topics[a]).localeCompare(topicDateStr(topics[b])) || (topics[a].createdAt||0)-(topics[b].createdAt||0));
     const box = document.getElementById('teacherTopicBox');
     if(!box) return;
     if(!ids.length){ box.innerHTML = `<div class="empty">주제를 추가해주세요.</div>`; return; }
-    box.innerHTML = ids.map(id => `
+    const today = todayStr();
+    box.innerHTML = ids.map(id => {
+      const d = topicDateStr(topics[id]);
+      const dateBadge = d === today ? `<span class="badge ok">오늘 ${esc(d)}</span>` : `<span class="badge wait">${esc(d)}</span>`;
+      return `
       <div class="topic-item" data-id="${id}">
-        <div class="title">${esc(topics[id].title)}</div>
+        <div class="title">${esc(topics[id].title)} ${dateBadge}</div>
         <div style="display:flex;align-items:center;gap:10px;">
           <span class="count">제출글 보기 ›</span>
           <button type="button" class="del-x" data-del="${id}" title="주제 삭제">×</button>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
     box.querySelectorAll('.topic-item').forEach(el => {
       el.onclick = (e) => {
         if(e.target.closest('.del-x')) return;
