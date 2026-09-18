@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>우리반 글쓰기 & AI 피드백</title>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --primary:#4f7cff; --primary-dark:#3a5fd9; --bg:#f6f8fc; --card:#ffffff;
+    --text:#2b2f3a; --muted:#7a8194; --border:#e3e7f0; --good:#2fa86b; --warn:#e08a2c;
+    --btn-secondary-bg:#eef1f8; --btn-secondary-text:#2b2f3a;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1a1c22; --card:#242730; --text:#eef0f5; --muted:#9aa0b0; --border:#383c48;
+      --btn-secondary-bg:#343846; --btn-secondary-text:#eef0f5;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1a1c22; --card:#242730; --text:#eef0f5; --muted:#9aa0b0; --border:#383c48;
+    --btn-secondary-bg:#343846; --btn-secondary-text:#eef0f5;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:var(--bg);color:var(--text);}
+  .previewBanner{background:#fff2e0;color:#8a5a12;text-align:center;font-size:13px;padding:8px;font-weight:600;}
+  header{background:var(--primary);color:#fff;padding:18px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+  header h1{margin:0;font-size:20px;}
+  header nav button{background:rgba(255,255,255,.18);border:none;color:#fff;padding:8px 14px;border-radius:8px;margin-left:6px;cursor:pointer;font-size:14px;}
+  header nav button.active{background:#fff;color:var(--primary);font-weight:700;}
+  main{max-width:720px;margin:0 auto;padding:20px 16px 60px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(30,40,80,.04);}
+  .card h2{margin-top:0;font-size:18px;}
+  .topic-item{display:flex;justify-content:space-between;align-items:center;padding:14px;border:1px solid var(--border);border-radius:10px;margin-bottom:10px;cursor:pointer;background:var(--card);transition:.15s;}
+  .topic-item:hover{border-color:var(--primary);}
+  .topic-item .title{font-weight:700;}
+  .topic-item .count{color:var(--muted);font-size:13px;}
+  input[type=text], input[type=password], textarea{width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:15px;font-family:inherit;background:var(--card);color:var(--text);}
+  textarea{min-height:220px;resize:none;line-height:1.6;overflow:hidden;}
+  label{display:block;margin:10px 0 4px;font-size:14px;color:var(--muted);font-weight:600;}
+  button.btn{background:var(--primary);color:#fff;border:none;padding:12px 18px;border-radius:9px;font-size:15px;font-weight:700;cursor:pointer;margin-top:14px;}
+  button.btn:hover{background:var(--primary-dark);}
+  button.btn.secondary{background:var(--btn-secondary-bg);color:var(--btn-secondary-text);}
+  button.btn.small{padding:7px 12px;font-size:13px;margin-top:0;}
+  button.btn:disabled{opacity:.5;cursor:not-allowed;}
+  .checkbox-row{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:14px;color:var(--muted);}
+  .checkbox-row input{width:auto;}
+  .fb-section{border-radius:10px;padding:14px 16px;margin-top:12px;white-space:pre-wrap;line-height:1.7;font-size:14px;}
+  .fb-content{background:#eef7f0;color:#1c3d2a;border:1px solid #cdebd8;}
+  .fb-teacher{background:#fff8f0;color:#3a2c1c;border:1px solid #f3ddc0;line-height:1.8;font-size:14px;white-space:pre-wrap;}
+  .fb-label{font-weight:800;font-size:13px;margin-bottom:6px;display:block;}
+  .badge{display:inline-block;font-size:12px;padding:3px 9px;border-radius:20px;font-weight:700;}
+  .badge.wait{background:#fff2e0;color:var(--warn);}
+  .badge.ok{background:#e4f7ec;color:var(--good);}
+  .badge.sent{background:#e6edff;color:#3a5fd9;}
+  .sub-item{border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;}
+  .sub-item .meta{font-size:13px;color:var(--muted);margin-bottom:6px;}
+  .sub-item .text{white-space:pre-wrap;line-height:1.6;font-size:14px;margin:8px 0;}
+  .back{background:none;border:none;color:var(--primary);cursor:pointer;font-size:14px;margin-bottom:12px;padding:0;}
+  .loading{color:var(--muted);font-size:14px;}
+  .empty{color:var(--muted);text-align:center;padding:30px 0;font-size:14px;}
+  .rec-card{border-left:4px solid var(--primary);}
+  .pending-card{border-left:4px solid #c0392b;background:#fff5f5;}
+  .pending-card h2{color:#c0392b;}
+  .pending-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border:1px solid #f3caca;border-radius:9px;margin-bottom:8px;cursor:pointer;background:#fff;}
+  .badge.pending{background:#fde2e0;color:#c0392b;}
+  .del-x{background:none;border:none;color:#c0392b;font-size:20px;font-weight:700;cursor:pointer;line-height:1;padding:2px 6px;border-radius:6px;}
+  .del-x:hover{background:#fde2e0;}
+  .del-x.confirming{font-size:12px;font-weight:700;background:#fde2e0;padding:4px 8px;}
+  .notice{font-size:13px;color:var(--muted);background:var(--bg);border:1px dashed var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;}
+  .toolbar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+  .toolbar button{background:var(--btn-secondary-bg);color:var(--btn-secondary-text);border:1px solid var(--border);padding:7px 12px;border-radius:7px;font-size:13px;cursor:pointer;}
+  .previewDiff{border:1px solid var(--border);border-radius:8px;padding:14px;min-height:100px;white-space:pre-wrap;line-height:1.8;font-size:15px;background:var(--bg);color:var(--text);margin-top:14px;}
+  .orig-ref{font-size:13px;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;white-space:pre-wrap;margin-bottom:14px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>✏️ 우리반 글쓰기</h1>
+  <nav>
+    <button id="navStudent" class="active">학생</button>
+    <button id="navTeacher">선생님</button>
+  </nav>
+</header>
+
+<main id="app"></main>
+
+<script>
+/* ====================== 설정 (여기를 채워주세요) ====================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyDX-JJW3aWodVgw-JdtmXRu6IRBB6ZLDaw",
+  authDomain: "writingfeedback-69661.firebaseapp.com",
+  databaseURL: "https://writingfeedback-69661-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "writingfeedback-69661",
+};
+const GEMINI_API_KEY = "AQ.Ab8RN6IhtL_PGOczJffY1t2NWvOPQU7QJYkUs7aFOvOtD0OoRA"; // https://aistudio.google.com 에서 무료 발급
+const TEACHER_PASSWORD = "0521";
+const DB_ROOT = "writingFeedbackApp"; // 다른 프로젝트(짝꿍칠판 등)와 같은 Firebase를 써도 이 이름으로 경로가 분리돼요
+const STUDENT_KEY = "wfStudentInfo";
+/* ====================================================================== */
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+function saveStudentInfo(student){ localStorage.setItem(STUDENT_KEY, JSON.stringify(student)); }
+function loadStudentInfo(){ try{ return JSON.parse(localStorage.getItem(STUDENT_KEY)||'null'); }catch(e){ return null; } }
+
+const app = document.getElementById('app');
+const navStudent = document.getElementById('navStudent');
+const navTeacher = document.getElementById('navTeacher');
+
+let state = { role: 'student', view: 'topicList', topicId: null, teacherOk: false, student: null, currentSubId: null };
+
+navStudent.onclick = () => { state = {role:'student', view:'topicList', topicId:null, teacherOk:false, student:null, currentSubId:null}; setNav(); render(); };
+navTeacher.onclick = () => { state.role='teacher'; state.view = state.teacherOk ? 'teacherHome' : 'teacherLogin'; setNav(); render(); };
+
+function setNav(){
+  navStudent.classList.toggle('active', state.role==='student');
+  navTeacher.classList.toggle('active', state.role==='teacher');
+}
+
+function esc(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function sameStudent(a,b){ return a && b && String(a.number).trim()===String(b.number).trim() && a.name.trim()===b.name.trim(); }
+
+function showMsg(msg){
+  let el = document.getElementById('toastMsg');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'toastMsg';
+    el.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#2b2f3a;color:#fff;padding:10px 18px;border-radius:8px;font-size:14px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.2);max-width:90%;text-align:center;';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>{ el.style.display='none'; }, 2200);
+}
+
+function autoGrow(el){
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+function isToday(ts){
+  const d = new Date(ts), now = new Date();
+  return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth() && d.getDate()===now.getDate();
+}
+
+/* ---------------- 학생: 주제 목록 ---------------- */
+function renderTopicList(){
+  app.innerHTML = `
+    <div class="card">
+      <h2>📚 오늘의 주제</h2>
+      <div id="topicListBox" class="loading">불러오는 중...</div>
+    </div>
+    <div class="card" style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn secondary" id="goRecommended" style="flex:1;">🌟 친구들의 추천 글 보기</button>
+      <button class="btn secondary" id="goMyWritings" style="flex:1;">📝 내가 쓴 글 보기</button>
+    </div>
+    <div id="pendingCardSlot"></div>
+  `;
+  document.getElementById('goRecommended').onclick = () => { state.view='recommended'; render(); };
+  document.getElementById('goMyWritings').onclick = () => { state.view='myWritings'; render(); };
+
+  const student = loadStudentInfo();
+
+  Promise.all([
+    db.ref(`${DB_ROOT}/topics`).once(),
+    student ? db.ref(`${DB_ROOT}/submissions`).once() : Promise.resolve({val:()=>({})})
+  ]).then(([topicSnap, subSnap]) => {
+    const topics = topicSnap.val() || {};
+    const subsAll = subSnap.val() || {};
+    const pendingTopicIds = new Set();
+
+    if(student){
+      Object.keys(subsAll).forEach(topicId => {
+        Object.values(subsAll[topicId]).forEach(s => {
+          if(sameStudent(s, student) && s.teacherSent) pendingTopicIds.add(topicId);
+        });
+      });
+    }
+
+    const ids = Object.keys(topics)
+      .filter(id => isToday(topics[id].createdAt))
+      .sort((a,b)=> (topics[b].createdAt||0)-(topics[a].createdAt||0));
+    const box = document.getElementById('topicListBox');
+    if(!ids.length){ box.innerHTML = `<div class="empty">오늘 등록된 주제가 아직 없어요. 선생님을 기다려주세요!</div>`; return; }
+    box.innerHTML = ids.map(id => `
+      <div class="topic-item" data-id="${id}">
+        <div class="title">${esc(topics[id].title)} ${pendingTopicIds.has(id) ? '<span class="badge pending">첨삭 도착</span>' : ''}</div>
+        <div class="count">›</div>
+      </div>
+    `).join('');
+    box.querySelectorAll('.topic-item').forEach(el => {
+      el.onclick = () => { state.topicId = el.dataset.id; state.student = state.student || student; state.currentSubId = null; state.view = state.student ? 'write' : 'enterInfo'; render(); };
+    });
+
+    const slot = document.getElementById('pendingCardSlot');
+    if(pendingTopicIds.size){
+      slot.innerHTML = `
+        <div class="card pending-card">
+          <h2>📬 선생님 첨삭이 도착했어요!</h2>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">눌러서 확인하고 고쳐 써보세요.</div>
+          ${[...pendingTopicIds].map(id => `
+            <div class="pending-item" data-id="${id}">
+              <span>${esc(topics[id].title)}</span>
+              <span style="color:var(--primary);">수정하러 가기 ›</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      slot.querySelectorAll('.pending-item').forEach(el => {
+        el.onclick = () => { state.topicId = el.dataset.id; state.student = student; state.currentSubId = null; state.view='write'; render(); };
+      });
+    }
+  });
+}
+
+/* ---------------- 학생: 이름/번호 입력 ---------------- */
+function renderEnterInfo(){
+  const saved = loadStudentInfo();
+  app.innerHTML = `
+    <button class="back" id="backBtn">‹ 주제 목록으로</button>
+    <div class="card">
+      <h2>내 정보 입력</h2>
+      <label>번호</label>
+      <input type="text" id="numInput" placeholder="예: 5" inputmode="numeric" value="${saved ? esc(saved.number) : ''}">
+      <label>이름</label>
+      <input type="text" id="nameInput" placeholder="이름을 입력하세요" value="${saved ? esc(saved.name) : ''}">
+      <button class="btn" id="startWrite">글쓰기 시작하기</button>
+    </div>
+  `;
+  document.getElementById('backBtn').onclick = () => { state.view='topicList'; render(); };
+  document.getElementById('startWrite').onclick = () => {
+    const number = document.getElementById('numInput').value.trim();
+    const name = document.getElementById('nameInput').value.trim();
+    if(!name || !number){ showMsg('번호와 이름을 모두 입력해주세요.'); return; }
+    state.student = { name, number };
+    saveStudentInfo(state.student);
+    state.view = 'write';
+    render();
+  };
+}
+
+/* ---------------- 학생: 글쓰기 (기존 글 있으면 불러오기 + 선생님 첨삭 보여주기) ---------------- */
+function renderWrite(){
+  Promise.all([
+    db.ref(`${DB_ROOT}/topics/${state.topicId}`).once(),
+    db.ref(`${DB_ROOT}/submissions/${state.topicId}`).once()
+  ]).then(([topicSnap, subSnap]) => {
+    const topic = topicSnap.val();
+    const subs = subSnap.val() || {};
+    let existing = null, existingId = null;
+    Object.entries(subs).forEach(([id, s]) => {
+      if(sameStudent(s, state.student)){ existing = s; existingId = id; }
+    });
+    state.currentSubId = existingId;
+
+    app.innerHTML = `
+      <button class="back" id="backBtn">‹ 이전으로</button>
+      <div class="card">
+        <h2>${esc(topic.title)}</h2>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">${esc(state.student.number)}번 ${esc(state.student.name)}</div>
+        ${topic.description ? `<div class="notice" style="color:var(--text);border-style:solid;white-space:pre-wrap;">📋 ${esc(topic.description)}</div>` : ''}
+        ${existing && existing.teacherSent && existing.teacherMarkup ? `<div class="fb-teacher"><span class="fb-label">👩‍🏫 선생님 피드백 (빨간 글씨 = 고칠 부분)</span>${existing.teacherMarkup}</div>` : ''}
+        ${existing ? `<div class="notice">✏️ 이미 제출한 글이 있어요. 아래에서 고쳐서 다시 제출하면 피드백도 새로 받을 수 있어요.</div>` : ''}
+        <textarea id="writeArea" placeholder="이곳에 글을 써주세요...">${existing ? esc(existing.text) : ''}</textarea>
+        <div class="checkbox-row">
+          <input type="checkbox" id="optOutBox" ${existing && existing.optOut ? 'checked' : ''}>
+          <label style="margin:0;" for="optOutBox">내 글 추천금지 (친구들에게 공개되지 않아요)</label>
+        </div>
+        <button class="btn" id="submitBtn">${existing ? '수정해서 다시 제출하기' : '제출하고 AI 피드백 받기'}</button>
+        <div id="submitStatus" style="margin-top:10px;"></div>
+      </div>
+    `;
+    document.getElementById('backBtn').onclick = () => { state.view='enterInfo'; render(); };
+    const writeArea = document.getElementById('writeArea');
+    autoGrow(writeArea);
+    writeArea.addEventListener('input', () => autoGrow(writeArea));
+    writeArea.addEventListener('keydown', function(e){
+      if(e.key === 'Tab'){
+        e.preventDefault();
+        const start = this.selectionStart, end = this.selectionEnd;
+        const lineStart = this.value.lastIndexOf('\n', start - 1) + 1;
+        const beforeCursor = this.value.substring(lineStart, start);
+        if(/^[ \t]+$/.test(beforeCursor) && beforeCursor.length >= 2) return; // 이미 들여쓰기 되어 있으면 추가 안 함
+        this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
+        this.selectionStart = this.selectionEnd = start + 2;
+        autoGrow(this);
+      }
+    });
+    document.getElementById('submitBtn').onclick = async () => {
+      const raw = document.getElementById('writeArea').value;
+      if(!raw.trim()){ showMsg('글을 입력해주세요.'); return; }
+      const text = raw.replace(/\n+$/,''); // 뒤쪽 빈 줄만 정리, 앞쪽 들여쓰기는 그대로 유지
+      const optOut = document.getElementById('optOutBox').checked;
+      const btn = document.getElementById('submitBtn');
+      const status = document.getElementById('submitStatus');
+      btn.disabled = true;
+      status.innerHTML = `<span class="loading">AI가 글을 읽고 피드백을 쓰는 중이에요...</span>`;
+      try {
+        const result = await getAiFeedback(topic.title, text);
+        const payload = {
+          name: state.student.name,
+          number: state.student.number,
+          text,
+          feedbackContent: result.contentFeedback,
+          aiRecommended: result.recommend,
+          teacherApproved: existing ? !!existing.teacherApproved : false,
+          teacherMarkup: null,
+          teacherSent: false,
+          optOut,
+          createdAt: existing ? existing.createdAt : Date.now(),
+          updatedAt: Date.now()
+        };
+        if(state.currentSubId){
+          await db.ref(`${DB_ROOT}/submissions/${state.topicId}/${state.currentSubId}`).update(payload);
+        } else {
+          const ref = await db.ref(`${DB_ROOT}/submissions/${state.topicId}`).push(payload);
+          state.currentSubId = ref.key;
+        }
+        state.lastFeedback = { content: result.contentFeedback };
+        state.view = 'feedback';
+        render();
+      } catch(e){
+        console.error(e);
+        status.innerHTML = `<span style="color:#c0392b;">피드백을 받는 중 문제가 생겼어요. 다시 시도해주세요.</span>`;
+        btn.disabled = false;
+      }
+    };
+  });
+}
+
+/* ---------------- 학생: 피드백 결과 ---------------- */
+function renderFeedback(){
+  app.innerHTML = `
+    <div class="card">
+      <h2>✅ 제출 완료!</h2>
+      <div style="font-size:14px;color:var(--muted);">AI 선생님의 내용 피드백이에요</div>
+      <div class="fb-section fb-content"><span class="fb-label">📖 내용</span>${esc(state.lastFeedback.content)}</div>
+      <div class="notice">문단·맞춤법 같은 형식 피드백은 선생님이 직접 확인 후 보내주실 거예요.</div>
+      <div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;">
+        <button class="btn" id="editBtn" style="flex:1;">수정하기</button>
+        <button class="btn secondary" id="doneBtn" style="flex:1;">주제 목록으로</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('editBtn').onclick = () => { state.view='write'; render(); };
+  document.getElementById('doneBtn').onclick = () => { state.view='topicList'; render(); };
+}
+
+/* ---------------- 학생: 내가 쓴 글 보기 ---------------- */
+function renderMyWritings(){
+  if(!state.student){
+    const saved = loadStudentInfo();
+    if(saved) state.student = saved;
+  }
+  if(!state.student){
+    app.innerHTML = `
+      <button class="back" id="backBtn">‹ 주제 목록으로</button>
+      <div class="card">
+        <h2>내가 쓴 글 보기</h2>
+        <div class="notice">확인하려면 먼저 이름과 번호를 입력해주세요.</div>
+        <label>번호</label>
+        <input type="text" id="numInput" inputmode="numeric">
+        <label>이름</label>
+        <input type="text" id="nameInput">
+        <button class="btn" id="goBtn">확인하기</button>
+      </div>
+    `;
+    document.getElementById('backBtn').onclick = () => { state.view='topicList'; render(); };
+    document.getElementById('goBtn').onclick = () => {
+      const number = document.getElementById('numInput').value.trim();
+      const name = document.getElementById('nameInput').value.trim();
+      if(!name || !number){ showMsg('번호와 이름을 모두 입력해주세요.'); return; }
+      state.student = { name, number };
+      saveStudentInfo(state.student);
+      render();
+    };
+    return;
+  }
+
+  app.innerHTML = `
+    <button class="back" id="backBtn">‹ 주제 목록으로</button>
+    <div class="card">
+      <h2>📝 내가 쓴 글 (${esc(state.student.number)}번 ${esc(state.student.name)})</h2>
+      <div id="myBox" class="loading">불러오는 중...</div>
+    </div>
+  `;
+  document.getElementById('backBtn').onclick = () => { state.view='topicList'; render(); };
+
+  Promise.all([
+    db.ref(`${DB_ROOT}/topics`).once(),
+    db.ref(`${DB_ROOT}/submissions`).once()
+  ]).then(([topicSnap, subSnap]) => {
+    const topics = topicSnap.val() || {};
+    const subs = subSnap.val() || {};
+    let items = [];
+    Object.keys(subs).forEach(topicId => {
+      Object.entries(subs[topicId]).forEach(([subId, s]) => {
+        if(sameStudent(s, state.student)){
+          items.push({...s, topicId, topicTitle: topics[topicId] ? topics[topicId].title : ''});
+        }
+      });
+    });
+    items.sort((a,b)=> (b.updatedAt||b.createdAt) - (a.updatedAt||a.createdAt));
+    const box = document.getElementById('myBox');
+    if(!items.length){ box.innerHTML = `<div class="empty">아직 쓴 글이 없어요.</div>`; return; }
+    box.innerHTML = items.map(s => {
+      let badge = '';
+      if(s.optOut) badge = `<span class="badge wait">추천 금지</span>`;
+      else if(s.teacherApproved) badge = `<span class="badge ok">추천 승인됨</span>`;
+      else if(s.aiRecommended) badge = `<span class="badge wait">AI 추천 후보</span>`;
+      return `
+        <div class="sub-item">
+          <div class="meta">${esc(s.topicTitle)} ${badge}</div>
+          <div class="text">${esc(s.text)}</div>
+          <div class="fb-section fb-content"><span class="fb-label">📖 내용 피드백</span>${esc(s.feedbackContent||'')}</div>
+          ${s.teacherSent && s.teacherMarkup ? `<div class="fb-teacher"><span class="fb-label">👩‍🏫 선생님 피드백</span>${s.teacherMarkup}</div>` : ''}
+          <button class="btn small" data-edit="${s.topicId}" style="margin-top:10px;">이 글 수정하기</button>
+        </div>
+      `;
+    }).join('');
+    box.querySelectorAll('[data-edit]').forEach(b => {
+      b.onclick = () => { state.topicId = b.dataset.edit; state.view='write'; render(); };
+    });
+  });
+}
+
+/* ---------------- 학생: 추천 글 모음 ---------------- */
+function renderRecommended(){
+  app.innerHTML = `
+    <button class="back" id="backBtn">‹ 주제 목록으로</button>
+    <div class="card"><h2>🌟 친구들의 추천 글</h2><div id="recBox" class="loading">불러오는 중...</div></div>
+  `;
+  document.getElementById('backBtn').onclick = () => { state.view='topicList'; render(); };
+
+  Promise.all([
+    db.ref(`${DB_ROOT}/topics`).once(),
+    db.ref(`${DB_ROOT}/submissions`).once()
+  ]).then(([topicSnap, subSnap]) => {
+    const topics = topicSnap.val() || {};
+    const subs = subSnap.val() || {};
+    let items = [];
+    Object.keys(subs).forEach(topicId => {
+      Object.entries(subs[topicId]).forEach(([subId, s]) => {
+        if(s.teacherApproved && !s.optOut){
+          items.push({...s, topicTitle: topics[topicId] ? topics[topicId].title : ''});
+        }
+      });
+    });
+    items.sort((a,b)=> b.createdAt - a.createdAt);
+    const box = document.getElementById('recBox');
+    if(!items.length){ box.innerHTML = `<div class="empty">아직 추천된 글이 없어요.</div>`; return; }
+    box.innerHTML = items.map(s => `
+      <div class="sub-item rec-card">
+        <div class="meta">${esc(s.topicTitle)} · ${esc(s.number)}번 ${esc(s.name)}</div>
+        <div class="text">${esc(s.text)}</div>
+      </div>
+    `).join('');
+  });
+}
+
+/* ---------------- 선생님: 로그인 ---------------- */
+function renderTeacherLogin(){
+  app.innerHTML = `
+    <div class="card">
+      <h2>🔒 선생님 로그인</h2>
+      <label>비밀번호</label>
+      <input type="password" id="pwInput">
+      <button class="btn" id="loginBtn">로그인</button>
+    </div>
+  `;
+  document.getElementById('loginBtn').onclick = () => {
+    if(document.getElementById('pwInput').value === TEACHER_PASSWORD){
+      state.teacherOk = true; state.view='teacherHome'; render();
+    } else showMsg('비밀번호가 틀렸어요.');
+  };
+}
+
+/* ---------------- 선생님: 홈(주제 추가/목록) ---------------- */
+function renderTeacherHome(){
+  app.innerHTML = `
+    <div class="card">
+      <h2>📌 주제 추가</h2>
+      <label>주제</label>
+      <input type="text" id="newTopicInput" placeholder="예: 내가 화가 났을 때 어떻게 했나요?">
+      <label>글쓰기 설명 (선택, 학생 글쓰기 화면 위쪽에 보여요)</label>
+      <textarea id="newTopicDescInput" placeholder="예: 화가 났던 상황을 구체적으로 쓰고, 그때 어떻게 했는지, 다음엔 어떻게 하고 싶은지 써보세요." style="min-height:80px;"></textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" id="addTopicBtn" style="flex:1;">추가하기</button>
+        <button class="btn secondary" id="aiTopicBtn" style="flex:1;">✨ AI로 주제 추천받기</button>
+      </div>
+      <div id="aiTopicStatus" style="margin-top:8px;font-size:13px;color:var(--muted);"></div>
+    </div>
+    <div class="card">
+      <h2>주제 목록</h2>
+      <div id="teacherTopicBox" class="loading">불러오는 중...</div>
+    </div>
+  `;
+  document.getElementById('addTopicBtn').onclick = () => {
+    const title = document.getElementById('newTopicInput').value.trim();
+    const description = document.getElementById('newTopicDescInput').value.trim();
+    if(!title) return;
+    db.ref(`${DB_ROOT}/topics`).push({title, description, createdAt: Date.now()}).then(()=>{
+      document.getElementById('newTopicInput').value='';
+      document.getElementById('newTopicDescInput').value='';
+      loadTeacherTopics();
+    });
+  };
+  document.getElementById('aiTopicBtn').onclick = async () => {
+    const btn = document.getElementById('aiTopicBtn');
+    const status = document.getElementById('aiTopicStatus');
+    btn.disabled = true;
+    status.textContent = 'AI가 주제를 생각하는 중이에요...';
+    try{
+      const existingSnap = await db.ref(`${DB_ROOT}/topics`).once();
+      const existingTitles = Object.values(existingSnap.val() || {}).map(t => t.title);
+      const prompt = `초등학교 5학년 학생 대상 인성교육(감정 조절, 마음 표현) 글쓰기 활동을 위한 새 주제를 하나 추천해 주세요.
+${existingTitles.length ? `이미 있는 주제들 (겹치지 않게 새로운 것으로): ${existingTitles.join(', ')}` : ''}
+아이들이 자기 경험과 감정을 구체적으로 떠올려 쓸 수 있는 주제로, 매번 다른 상황/감정을 다루도록 만들어 주세요.
+아래 JSON 형식으로만 답해주세요:
+{"title": "짧고 친근한 질문 형태의 주제 제목 (한 문장)", "description": "학생에게 줄 글쓰기 안내 2~3문장 — 어떤 내용을 담아 써야 하는지 구체적으로"}`;
+      const parsed = await callOpenAI(prompt);
+      document.getElementById('newTopicInput').value = parsed.title || '';
+      document.getElementById('newTopicDescInput').value = parsed.description || '';
+      status.textContent = '추천된 주제예요. 마음에 안 들면 고치거나 다시 추천받아보세요.';
+    } catch(e){
+      console.error(e);
+      status.textContent = '주제를 추천받는 중 문제가 생겼어요. 다시 시도해주세요.';
+    } finally {
+      btn.disabled = false;
+    }
+  };
+  loadTeacherTopics();
+}
+
+function loadTeacherTopics(){
+  db.ref(`${DB_ROOT}/topics`).once().then(snap => {
+    const topics = snap.val() || {};
+    const ids = Object.keys(topics).sort((a,b)=> (topics[b].createdAt||0)-(topics[a].createdAt||0));
+    const box = document.getElementById('teacherTopicBox');
+    if(!box) return;
+    if(!ids.length){ box.innerHTML = `<div class="empty">주제를 추가해주세요.</div>`; return; }
+    box.innerHTML = ids.map(id => `
+      <div class="topic-item" data-id="${id}">
+        <div class="title">${esc(topics[id].title)}</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="count">제출글 보기 ›</span>
+          <button type="button" class="del-x" data-del="${id}" title="주제 삭제">×</button>
+        </div>
+      </div>
+    `).join('');
+    box.querySelectorAll('.topic-item').forEach(el => {
+      el.onclick = (e) => {
+        if(e.target.closest('.del-x')) return;
+        state.topicId = el.dataset.id; state.view='teacherTopic'; render();
+      };
+    });
+    box.querySelectorAll('.del-x').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        if(btn.dataset.confirming === '1'){
+          const topicId = btn.dataset.del;
+          Promise.all([
+            db.ref(`${DB_ROOT}/topics/${topicId}`).remove(),
+            db.ref(`${DB_ROOT}/submissions/${topicId}`).remove()
+          ]).then(()=>{ showMsg('주제를 삭제했어요.'); loadTeacherTopics(); });
+        } else {
+          document.querySelectorAll('.del-x.confirming').forEach(b => { b.classList.remove('confirming'); b.textContent='×'; b.dataset.confirming='0'; });
+          btn.dataset.confirming = '1';
+          btn.classList.add('confirming');
+          btn.textContent = '삭제?';
+          setTimeout(()=>{ if(btn.dataset.confirming==='1'){ btn.textContent='×'; btn.classList.remove('confirming'); btn.dataset.confirming='0'; } }, 3000);
+        }
+      };
+    });
+  });
+}
+
+/* ---------------- 선생님: 주제별 제출 글 + 추천 승인 + 첨삭 진입 ---------------- */
+function renderTeacherTopic(){
+  db.ref(`${DB_ROOT}/topics/${state.topicId}`).once().then(topicSnap => {
+    const topic = topicSnap.val();
+    app.innerHTML = `
+      <button class="back" id="backBtn">‹ 주제 목록으로</button>
+      <div class="card">
+        <h2>${esc(topic.title)}</h2>
+        <div id="subsBox" class="loading">불러오는 중...</div>
+      </div>
+    `;
+    document.getElementById('backBtn').onclick = () => { state.view='teacherHome'; render(); };
+
+    db.ref(`${DB_ROOT}/submissions/${state.topicId}`).once().then(subSnap => {
+      const subs = subSnap.val() || {};
+      const ids = Object.keys(subs).sort((a,b)=> (subs[b].updatedAt||subs[b].createdAt) - (subs[a].updatedAt||subs[a].createdAt));
+      const box = document.getElementById('subsBox');
+      if(!ids.length){ box.innerHTML = `<div class="empty">아직 제출한 학생이 없어요.</div>`; return; }
+      box.innerHTML = ids.map(id => {
+        const s = subs[id];
+        let badge = '';
+        if(s.optOut) badge = `<span class="badge wait">추천 금지</span>`;
+        else if(s.teacherApproved) badge = `<span class="badge ok">추천 승인됨</span>`;
+        else if(s.aiRecommended) badge = `<span class="badge wait">AI 추천 후보</span>`;
+        const sentBadge = s.teacherSent ? `<span class="badge sent">첨삭 전송됨</span>` : '';
+        return `
+          <div class="sub-item">
+            <div class="meta">${esc(s.number)}번 ${esc(s.name)} ${badge} ${sentBadge}</div>
+            <div class="text">${esc(s.text)}</div>
+            <details><summary style="cursor:pointer;color:var(--muted);font-size:13px;">AI 내용 피드백 보기</summary>
+              <div class="fb-section fb-content"><span class="fb-label">📖 내용</span>${esc(s.feedbackContent||'')}</div>
+            </details>
+            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <button class="btn small" data-markup="${id}">${s.teacherSent ? '다시 첨삭하기' : '첨삭하기'}</button>
+              ${!s.optOut ? (!s.teacherApproved
+                  ? `<button class="btn small secondary" data-approve="${id}">추천 승인하기</button>`
+                  : `<button class="btn small secondary" data-unapprove="${id}">승인 취소</button>`) : ''}
+              <button type="button" class="del-x" data-delsub="${id}" title="이 글 삭제" style="margin-left:auto;">×</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+      box.querySelectorAll('[data-approve]').forEach(b => {
+        b.onclick = () => db.ref(`${DB_ROOT}/submissions/${state.topicId}/${b.dataset.approve}`).update({teacherApproved:true}).then(()=>renderTeacherTopic());
+      });
+      box.querySelectorAll('[data-unapprove]').forEach(b => {
+        b.onclick = () => db.ref(`${DB_ROOT}/submissions/${state.topicId}/${b.dataset.unapprove}`).update({teacherApproved:false}).then(()=>renderTeacherTopic());
+      });
+      box.querySelectorAll('[data-markup]').forEach(b => {
+        b.onclick = () => { state.currentSubId = b.dataset.markup; state.view='teacherMarkup'; render(); };
+      });
+      box.querySelectorAll('[data-delsub]').forEach(btn => {
+        btn.onclick = () => {
+          if(btn.dataset.confirming === '1'){
+            db.ref(`${DB_ROOT}/submissions/${state.topicId}/${btn.dataset.delsub}`).remove().then(()=>{ showMsg('글을 삭제했어요.'); renderTeacherTopic(); });
+          } else {
+            document.querySelectorAll('.del-x.confirming').forEach(b => { b.classList.remove('confirming'); b.textContent='×'; b.dataset.confirming='0'; });
+            btn.dataset.confirming = '1';
+            btn.classList.add('confirming');
+            btn.textContent = '삭제?';
+            setTimeout(()=>{ if(btn.dataset.confirming==='1'){ btn.textContent='×'; btn.classList.remove('confirming'); btn.dataset.confirming='0'; } }, 3000);
+          }
+        };
+      });
+    });
+  });
+}
+
+/* ---------------- 자동 비교(diff) 엔진 ---------------- */
+function tokenize(text){
+  return text.match(/[ \t]+|[^ \t]+/g) || [];
+}
+function isWhitespaceToken(t){ return /^[ \t]+$/.test(t); }
+
+// 공통 부분수열(LCS) 기반 정렬: equal/insert만 반환 (단어 단위 비교용)
+function diffTokens(origTokens, newTokens){
+  const n = origTokens.length, m = newTokens.length;
+  const dp = Array.from({length:n+1}, () => new Array(m+1).fill(0));
+  for(let i=n-1;i>=0;i--){
+    for(let j=m-1;j>=0;j--){
+      dp[i][j] = origTokens[i]===newTokens[j] ? dp[i+1][j+1]+1 : Math.max(dp[i+1][j], dp[i][j+1]);
+    }
+  }
+  let i=0, j=0; const result = [];
+  while(j<m){
+    if(i<n && origTokens[i]===newTokens[j] && dp[i][j]===dp[i+1][j+1]+1){
+      result.push({type:'equal', token:newTokens[j]}); i++; j++;
+    } else if(i<n && dp[i+1][j] >= dp[i][j+1]){
+      i++;
+    } else {
+      result.push({type:'insert', token:newTokens[j]}); j++;
+    }
+  }
+  return result;
+}
+
+// 전체 opcode(equal/delete/insert) 반환 — 줄 단위 정렬에 사용
+function fullDiff(origTokens, newTokens){
+  const n = origTokens.length, m = newTokens.length;
+  const dp = Array.from({length:n+1}, () => new Array(m+1).fill(0));
+  for(let i=n-1;i>=0;i--){
+    for(let j=m-1;j>=0;j--){
+      dp[i][j] = origTokens[i]===newTokens[j] ? dp[i+1][j+1]+1 : Math.max(dp[i+1][j], dp[i][j+1]);
+    }
+  }
+  let i=0, j=0; const ops = [];
+  while(i<n && j<m){
+    if(origTokens[i]===newTokens[j] && dp[i][j]===dp[i+1][j+1]+1){ ops.push({type:'equal', a:origTokens[i], b:newTokens[j]}); i++; j++; }
+    else if(dp[i+1][j] >= dp[i][j+1]){ ops.push({type:'delete', a:origTokens[i]}); i++; }
+    else { ops.push({type:'insert', b:newTokens[j]}); j++; }
+  }
+  while(i<n){ ops.push({type:'delete', a:origTokens[i]}); i++; }
+  while(j<m){ ops.push({type:'insert', b:newTokens[j]}); j++; }
+  return ops;
+}
+
+// 연속된 delete+insert를 replace 쌍으로 묶음 (같은 줄이 살짝 바뀐 경우를 감지)
+function groupOps(ops){
+  const result = [];
+  let delBuf = [], insBuf = [];
+  function flush(){
+    const pairs = Math.min(delBuf.length, insBuf.length);
+    for(let k=0;k<pairs;k++) result.push({type:'replace', a:delBuf[k], b:insBuf[k]});
+    for(let k=pairs;k<insBuf.length;k++) result.push({type:'new', b:insBuf[k]});
+    delBuf=[]; insBuf=[];
+  }
+  ops.forEach(op=>{
+    if(op.type==='equal'){ flush(); result.push(op); }
+    else if(op.type==='delete'){ delBuf.push(op.a); }
+    else { insBuf.push(op.b); }
+  });
+  flush();
+  return result;
+}
+
+function mergeWhitespaceRuns(diff){
+  const merged = [];
+  for(const item of diff){
+    const last = merged[merged.length-1];
+    if(last && isWhitespaceToken(item.token) && isWhitespaceToken(last.token)){
+      last.token += item.token;
+      if(item.type === 'insert') last.type = 'insert';
+    } else {
+      merged.push({type:item.type, token:item.token});
+    }
+  }
+  return merged;
+}
+
+function cappedWs(ws){ return ws.length > 2 ? ws.slice(0, 2) : ws; }
+
+// 한 줄 안에서 단어 단위로 비교 (줄바꿈 없음, 들여쓰기는 이미 별도 처리됨)
+function wordDiffHtml(a, b){
+  const diff = mergeWhitespaceRuns(diffTokens(tokenize(a), tokenize(b)));
+  let html = '';
+  diff.forEach(({type, token}) => {
+    if(isWhitespaceToken(token)){
+      html += type==='insert' ? `<span style="background:#fadbd8;border-radius:3px;">${cappedWs(token)}</span>` : cappedWs(token);
+    } else {
+      html += type==='insert' ? `<span style="color:#c0392b;font-weight:700;">${esc(token)}</span>` : esc(token);
+    }
+  });
+  return html;
+}
+
+function splitLeadingWs(line){
+  const m = line.match(/^[ \t]*/);
+  return { ws: m[0], rest: line.slice(m[0].length) };
+}
+
+// 줄 단위로 먼저 정렬한 뒤, 같은 줄(또는 약간 바뀐 줄)은 그 안에서 들여쓰기·단어를 따로 비교
+function diffToHtml(origText, correctedText){
+  const origLines = origText.split('\n');
+  const corrLines = correctedText.split('\n');
+  const lineOps = groupOps(fullDiff(origLines, corrLines));
+  let html = '';
+  lineOps.forEach((op, idx) => {
+    if(idx > 0){
+      if(op.type === 'new') html += '<span style="color:#c0392b;font-weight:700;">↵</span>';
+      html += '<br>';
+    }
+    if(op.type === 'equal'){
+      const {ws, rest} = splitLeadingWs(op.a);
+      html += cappedWs(ws) + esc(rest);
+    } else if(op.type === 'replace'){
+      const o = splitLeadingWs(op.a), c = splitLeadingWs(op.b);
+      html += (c.ws !== o.ws)
+        ? `<span style="background:#fadbd8;border-radius:3px;">${cappedWs(c.ws)}</span>`
+        : cappedWs(c.ws);
+      html += wordDiffHtml(o.rest, c.rest);
+    } else { // 'new' — 완전히 새로 추가된 줄
+      const {ws, rest} = splitLeadingWs(op.b);
+      html += (ws ? `<span style="background:#fadbd8;border-radius:3px;">${cappedWs(ws)}</span>` : '')
+        + `<span style="color:#c0392b;font-weight:700;">${esc(rest)}</span>`;
+    }
+  });
+  return html;
+}
+
+/* ---------------- 선생님: 첨삭 에디터 (자동 비교) ---------------- */
+function renderTeacherMarkup(){
+  Promise.all([
+    db.ref(`${DB_ROOT}/topics/${state.topicId}`).once(),
+    db.ref(`${DB_ROOT}/submissions/${state.topicId}/${state.currentSubId}`).once()
+  ]).then(([topicSnap, subSnap]) => {
+    const topic = topicSnap.val();
+    const sub = subSnap.val();
+    const startText = sub.teacherCorrectedText || sub.text;
+    app.innerHTML = `
+      <button class="back" id="backBtn">‹ 목록으로</button>
+      <div class="card">
+        <h2>${esc(topic.title)} · ${esc(sub.number)}번 ${esc(sub.name)}</h2>
+        <div class="notice">아래 글을 원하는 대로 그냥 고쳐 써주세요 (문단 나누기, 띄어쓰기, 맞춤법 모두 편하게 직접 수정). 원본과 비교해서 달라진 부분은 자동으로 빨갛게 표시돼요 — 따로 선택하거나 색칠할 필요 없어요.</div>
+        <label>원본</label>
+        <div class="orig-ref">${esc(sub.text)}</div>
+        <label>고친 글</label>
+        <textarea id="correctedArea">${esc(startText)}</textarea>
+        <div class="toolbar" style="margin-top:10px;">
+          <button type="button" id="previewBtn">미리보기 (자동 비교)</button>
+          <button type="button" id="resetBtn">원본으로 되돌리기</button>
+        </div>
+        <div class="previewDiff" id="previewDiff"></div>
+        <button class="btn" id="sendBtn">학생에게 보내기</button>
+        <div id="sendStatus" style="margin-top:8px;font-size:13px;color:var(--good);"></div>
+      </div>
+    `;
+    document.getElementById('backBtn').onclick = () => { state.view='teacherTopic'; render(); };
+
+    const correctedArea = document.getElementById('correctedArea');
+    autoGrow(correctedArea);
+    correctedArea.addEventListener('input', () => autoGrow(correctedArea));
+    correctedArea.addEventListener('keydown', function(e){
+      if(e.key === 'Tab'){
+        e.preventDefault();
+        const start = this.selectionStart, end = this.selectionEnd;
+        const lineStart = this.value.lastIndexOf('\n', start - 1) + 1;
+        const beforeCursor = this.value.substring(lineStart, start);
+        if(/^[ \t]+$/.test(beforeCursor) && beforeCursor.length >= 2) return;
+        this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
+        this.selectionStart = this.selectionEnd = start + 2;
+        autoGrow(this);
+        updatePreview();
+      }
+    });
+
+    function updatePreview(){
+      document.getElementById('previewDiff').innerHTML = diffToHtml(sub.text, correctedArea.value);
+    }
+    updatePreview();
+    correctedArea.addEventListener('input', updatePreview);
+    document.getElementById('previewBtn').onclick = updatePreview;
+
+    document.getElementById('resetBtn').onclick = () => {
+      const btn = document.getElementById('resetBtn');
+      if(btn.dataset.confirming === '1'){
+        correctedArea.value = sub.text;
+        updatePreview();
+        btn.textContent = '원본으로 되돌리기';
+        btn.dataset.confirming = '0';
+      } else {
+        btn.textContent = '정말요? 한 번 더 누르면 되돌려요';
+        btn.dataset.confirming = '1';
+        setTimeout(()=>{ if(btn.dataset.confirming==='1'){ btn.textContent='원본으로 되돌리기'; btn.dataset.confirming='0'; } }, 3000);
+      }
+    };
+    document.getElementById('sendBtn').onclick = async () => {
+      const correctedText = correctedArea.value;
+      const html = diffToHtml(sub.text, correctedText);
+      await db.ref(`${DB_ROOT}/submissions/${state.topicId}/${state.currentSubId}`).update({
+        teacherMarkup: html, teacherCorrectedText: correctedText, teacherSent: true, teacherSentAt: Date.now()
+      });
+      document.getElementById('sendStatus').textContent = '학생에게 보냈어요!';
+      setTimeout(()=>{ state.view='teacherTopic'; render(); }, 700);
+    };
+  });
+}
+
+/* ---------------- AI 호출 공통 함수 (OpenAI ChatGPT API) ---------------- */
+async function callOpenAI(prompt){
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENAI_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' }
+    })
+  });
+  if(!res.ok){
+    const errText = await res.text();
+    throw new Error('OpenAI API 오류: ' + errText);
+  }
+  const data = await res.json();
+  const raw = data.choices?.[0]?.message?.content || '{}';
+  return JSON.parse(raw);
+}
+
+/* ---------------- AI 내용 피드백 ---------------- */
+async function getAiFeedback(topicTitle, text){
+  const prompt = `당신은 초등학교 5학년 학생들의 인성교육(감정 조절, 마음 표현) 글쓰기를 도와주는 다정한 선생님입니다.
+주제: "${topicTitle}"
+학생이 쓴 글:
+"""
+${text}
+"""
+내용적인 면만 평가해 주세요. 아래 두 가지를 모두 확인하세요.
+- 주제 적합성: 글이 주어진 주제("${topicTitle}")에 실제로 맞게 쓰였는지 먼저 확인하세요. 주제와 관련 없는 내용이라면, 칭찬보다 먼저 "이 부분은 주제와 조금 멀어진 것 같아요"처럼 부드럽지만 분명하게 짚어주세요.
+- 표현의 구체성: 주제에 맞게 썼다면, 생각과 감정을 얼마나 솔직하고 구체적으로 표현했는지 평가하세요.
+문단 구분, 맞춤법, 띄어쓰기 같은 형식적인 부분은 언급하지 마세요 (선생님이 별도로 확인합니다).
+
+아래 JSON 형식으로만 답해주세요:
+{"contentFeedback": "내용에 대한 피드백 2~3문장 — 먼저 주제에 맞게 썼는지 짚고, 그 다음 표현의 구체성을 따뜻하게, 초등학생이 이해하기 쉬운 말로", "recommend": true 또는 false (주제에 맞게, 자기 생각과 감정을 솔직하고 구체적으로 잘 표현했다면 true)}`;
+  const parsed = await callOpenAI(prompt);
+  return { contentFeedback: parsed.contentFeedback, recommend: !!parsed.recommend };
+}
+
+/* ---------------- 라우터 ---------------- */
+function render(){
+  if(state.role==='student'){
+    if(state.view==='topicList') renderTopicList();
+    else if(state.view==='enterInfo') renderEnterInfo();
+    else if(state.view==='write') renderWrite();
+    else if(state.view==='feedback') renderFeedback();
+    else if(state.view==='recommended') renderRecommended();
+    else if(state.view==='myWritings') renderMyWritings();
+  } else {
+    if(!state.teacherOk) renderTeacherLogin();
+    else if(state.view==='teacherHome') renderTeacherHome();
+    else if(state.view==='teacherTopic') renderTeacherTopic();
+    else if(state.view==='teacherMarkup') renderTeacherMarkup();
+    else renderTeacherHome();
+  }
+}
+render();
+</script>
+</body>
+</html>
