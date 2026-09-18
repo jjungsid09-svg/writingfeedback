@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>우리반 글쓰기 & AI 피드백</title>
+<title>우리반 글쓰기</title>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <style>
@@ -95,7 +95,6 @@ const firebaseConfig = {
   databaseURL: "https://writingfeedback-69661-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "writingfeedback-69661",
 };
-const GEMINI_API_KEY = "AQ.Ab8RN6IhtL_PGOczJffY1t2NWvOPQU7QJYkUs7aFOvOtD0OoRA"; // https://aistudio.google.com 에서 무료 발급
 const TEACHER_PASSWORD = "0521";
 const DB_ROOT = "writingFeedbackApp"; // 다른 프로젝트(짝꿍칠판 등)와 같은 Firebase를 써도 이 이름으로 경로가 분리돼요
 const STUDENT_KEY = "wfStudentInfo";
@@ -267,13 +266,13 @@ function renderWrite(){
         <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">${esc(state.student.number)}번 ${esc(state.student.name)}</div>
         ${topic.description ? `<div class="notice" style="color:var(--text);border-style:solid;white-space:pre-wrap;">📋 ${esc(topic.description)}</div>` : ''}
         ${existing && existing.teacherSent && existing.teacherMarkup ? `<div class="fb-teacher"><span class="fb-label">👩‍🏫 선생님 피드백 (빨간 글씨 = 고칠 부분)</span>${existing.teacherMarkup}</div>` : ''}
-        ${existing ? `<div class="notice">✏️ 이미 제출한 글이 있어요. 아래에서 고쳐서 다시 제출하면 피드백도 새로 받을 수 있어요.</div>` : ''}
+        ${existing ? `<div class="notice">✏️ 이미 제출한 글이 있어요. 아래에서 고쳐서 다시 제출할 수 있어요.</div>` : ''}
         <textarea id="writeArea" placeholder="이곳에 글을 써주세요...">${existing ? esc(existing.text) : ''}</textarea>
         <div class="checkbox-row">
           <input type="checkbox" id="optOutBox" ${existing && existing.optOut ? 'checked' : ''}>
           <label style="margin:0;" for="optOutBox">내 글 추천금지 (친구들에게 공개되지 않아요)</label>
         </div>
-        <button class="btn" id="submitBtn">${existing ? '수정해서 다시 제출하기' : '제출하고 AI 피드백 받기'}</button>
+        <button class="btn" id="submitBtn">${existing ? '수정해서 다시 제출하기' : '제출하기'}</button>
         <div id="submitStatus" style="margin-top:10px;"></div>
       </div>
     `;
@@ -301,15 +300,12 @@ function renderWrite(){
       const btn = document.getElementById('submitBtn');
       const status = document.getElementById('submitStatus');
       btn.disabled = true;
-      status.innerHTML = `<span class="loading">AI가 글을 읽고 피드백을 쓰는 중이에요...</span>`;
+      status.innerHTML = `<span class="loading">제출하는 중이에요...</span>`;
       try {
-        const result = await getAiFeedback(topic.title, text);
         const payload = {
           name: state.student.name,
           number: state.student.number,
           text,
-          feedbackContent: result.contentFeedback,
-          aiRecommended: result.recommend,
           teacherApproved: existing ? !!existing.teacherApproved : false,
           teacherMarkup: null,
           teacherSent: false,
@@ -323,12 +319,11 @@ function renderWrite(){
           const ref = await db.ref(`${DB_ROOT}/submissions/${state.topicId}`).push(payload);
           state.currentSubId = ref.key;
         }
-        state.lastFeedback = { content: result.contentFeedback };
         state.view = 'feedback';
         render();
       } catch(e){
         console.error(e);
-        status.innerHTML = `<span style="color:#c0392b;">피드백을 받는 중 문제가 생겼어요. 다시 시도해주세요.</span>`;
+        status.innerHTML = `<span style="color:#c0392b;">제출 중 문제가 생겼어요. 다시 시도해주세요.</span>`;
         btn.disabled = false;
       }
     };
@@ -340,9 +335,7 @@ function renderFeedback(){
   app.innerHTML = `
     <div class="card">
       <h2>✅ 제출 완료!</h2>
-      <div style="font-size:14px;color:var(--muted);">AI 선생님의 내용 피드백이에요</div>
-      <div class="fb-section fb-content"><span class="fb-label">📖 내용</span>${esc(state.lastFeedback.content)}</div>
-      <div class="notice">문단·맞춤법 같은 형식 피드백은 선생님이 직접 확인 후 보내주실 거예요.</div>
+      <div class="notice">선생님이 확인하고 첨삭해주실 거예요.</div>
       <div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;">
         <button class="btn" id="editBtn" style="flex:1;">수정하기</button>
         <button class="btn secondary" id="doneBtn" style="flex:1;">주제 목록으로</button>
@@ -414,12 +407,10 @@ function renderMyWritings(){
       let badge = '';
       if(s.optOut) badge = `<span class="badge wait">추천 금지</span>`;
       else if(s.teacherApproved) badge = `<span class="badge ok">추천 승인됨</span>`;
-      else if(s.aiRecommended) badge = `<span class="badge wait">AI 추천 후보</span>`;
       return `
         <div class="sub-item">
           <div class="meta">${esc(s.topicTitle)} ${badge}</div>
           <div class="text">${esc(s.text)}</div>
-          <div class="fb-section fb-content"><span class="fb-label">📖 내용 피드백</span>${esc(s.feedbackContent||'')}</div>
           ${s.teacherSent && s.teacherMarkup ? `<div class="fb-teacher"><span class="fb-label">👩‍🏫 선생님 피드백</span>${s.teacherMarkup}</div>` : ''}
           <button class="btn small" data-edit="${s.topicId}" style="margin-top:10px;">이 글 수정하기</button>
         </div>
@@ -491,11 +482,7 @@ function renderTeacherHome(){
       <input type="text" id="newTopicInput" placeholder="예: 내가 화가 났을 때 어떻게 했나요?">
       <label>글쓰기 설명 (선택, 학생 글쓰기 화면 위쪽에 보여요)</label>
       <textarea id="newTopicDescInput" placeholder="예: 화가 났던 상황을 구체적으로 쓰고, 그때 어떻게 했는지, 다음엔 어떻게 하고 싶은지 써보세요." style="min-height:80px;"></textarea>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn" id="addTopicBtn" style="flex:1;">추가하기</button>
-        <button class="btn secondary" id="aiTopicBtn" style="flex:1;">✨ AI로 주제 추천받기</button>
-      </div>
-      <div id="aiTopicStatus" style="margin-top:8px;font-size:13px;color:var(--muted);"></div>
+      <button class="btn" id="addTopicBtn">추가하기</button>
     </div>
     <div class="card">
       <h2>주제 목록</h2>
@@ -511,30 +498,6 @@ function renderTeacherHome(){
       document.getElementById('newTopicDescInput').value='';
       loadTeacherTopics();
     });
-  };
-  document.getElementById('aiTopicBtn').onclick = async () => {
-    const btn = document.getElementById('aiTopicBtn');
-    const status = document.getElementById('aiTopicStatus');
-    btn.disabled = true;
-    status.textContent = 'AI가 주제를 생각하는 중이에요...';
-    try{
-      const existingSnap = await db.ref(`${DB_ROOT}/topics`).once('value');
-      const existingTitles = Object.values(existingSnap.val() || {}).map(t => t.title);
-      const prompt = `초등학교 5학년 학생 대상 인성교육(감정 조절, 마음 표현) 글쓰기 활동을 위한 새 주제를 하나 추천해 주세요.
-${existingTitles.length ? `이미 있는 주제들 (겹치지 않게 새로운 것으로): ${existingTitles.join(', ')}` : ''}
-아이들이 자기 경험과 감정을 구체적으로 떠올려 쓸 수 있는 주제로, 매번 다른 상황/감정을 다루도록 만들어 주세요.
-아래 JSON 형식으로만 답해주세요:
-{"title": "짧고 친근한 질문 형태의 주제 제목 (한 문장)", "description": "학생에게 줄 글쓰기 안내 2~3문장 — 어떤 내용을 담아 써야 하는지 구체적으로"}`;
-      const parsed = await callGemini(prompt);
-      document.getElementById('newTopicInput').value = parsed.title || '';
-      document.getElementById('newTopicDescInput').value = parsed.description || '';
-      status.textContent = '추천된 주제예요. 마음에 안 들면 고치거나 다시 추천받아보세요.';
-    } catch(e){
-      console.error(e);
-      status.textContent = '주제를 추천받는 중 문제가 생겼어요. 다시 시도해주세요.';
-    } finally {
-      btn.disabled = false;
-    }
   };
   loadTeacherTopics();
 }
@@ -609,15 +572,11 @@ function renderTeacherTopic(){
         let badge = '';
         if(s.optOut) badge = `<span class="badge wait">추천 금지</span>`;
         else if(s.teacherApproved) badge = `<span class="badge ok">추천 승인됨</span>`;
-        else if(s.aiRecommended) badge = `<span class="badge wait">AI 추천 후보</span>`;
         const sentBadge = s.teacherSent ? `<span class="badge sent">첨삭 전송됨</span>` : '';
         return `
           <div class="sub-item">
             <div class="meta">${esc(s.number)}번 ${esc(s.name)} ${badge} ${sentBadge}</div>
             <div class="text">${esc(s.text)}</div>
-            <details><summary style="cursor:pointer;color:var(--muted);font-size:13px;">AI 내용 피드백 보기</summary>
-              <div class="fb-section fb-content"><span class="fb-label">📖 내용</span>${esc(s.feedbackContent||'')}</div>
-            </details>
             <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
               <button class="btn small" data-markup="${id}">${s.teacherSent ? '다시 첨삭하기' : '첨삭하기'}</button>
               ${!s.optOut ? (!s.teacherApproved
@@ -861,44 +820,6 @@ function renderTeacherMarkup(){
       setTimeout(()=>{ state.view='teacherTopic'; render(); }, 700);
     };
   });
-}
-
-/* ---------------- AI 호출 공통 함수 (Google Gemini API) ---------------- */
-async function callGemini(prompt){
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`, {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-  });
-  if(!res.ok){
-    const errText = await res.text();
-    throw new Error('Gemini API 오류: ' + errText);
-  }
-  const data = await res.json();
-  let raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-  raw = raw.replace(/```json|```/g, '').trim();
-  const jsonStart = raw.indexOf('{');
-  const jsonEnd = raw.lastIndexOf('}');
-  return JSON.parse(raw.slice(jsonStart, jsonEnd + 1));
-}
-
-/* ---------------- AI 내용 피드백 ---------------- */
-async function getAiFeedback(topicTitle, text){
-  const prompt = `당신은 초등학교 5학년 학생들의 인성교육(감정 조절, 마음 표현) 글쓰기를 도와주는 다정한 선생님입니다.
-주제: "${topicTitle}"
-학생이 쓴 글:
-"""
-${text}
-"""
-내용적인 면만 평가해 주세요. 아래 두 가지를 모두 확인하세요.
-- 주제 적합성: 글이 주어진 주제("${topicTitle}")에 실제로 맞게 쓰였는지 먼저 확인하세요. 주제와 관련 없는 내용이라면, 칭찬보다 먼저 "이 부분은 주제와 조금 멀어진 것 같아요"처럼 부드럽지만 분명하게 짚어주세요.
-- 표현의 구체성: 주제에 맞게 썼다면, 생각과 감정을 얼마나 솔직하고 구체적으로 표현했는지 평가하세요.
-문단 구분, 맞춤법, 띄어쓰기 같은 형식적인 부분은 언급하지 마세요 (선생님이 별도로 확인합니다).
-
-아래 JSON 형식으로만 답해주세요:
-{"contentFeedback": "내용에 대한 피드백 2~3문장 — 먼저 주제에 맞게 썼는지 짚고, 그 다음 표현의 구체성을 따뜻하게, 초등학생이 이해하기 쉬운 말로", "recommend": true 또는 false (주제에 맞게, 자기 생각과 감정을 솔직하고 구체적으로 잘 표현했다면 true)}`;
-  const parsed = await callGemini(prompt);
-  return { contentFeedback: parsed.contentFeedback, recommend: !!parsed.recommend };
 }
 
 /* ---------------- 라우터 ---------------- */
