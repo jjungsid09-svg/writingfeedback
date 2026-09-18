@@ -166,8 +166,8 @@ function renderTopicList(){
   const student = loadStudentInfo();
 
   Promise.all([
-    db.ref(`${DB_ROOT}/topics`).once(),
-    student ? db.ref(`${DB_ROOT}/submissions`).once() : Promise.resolve({val:()=>({})})
+    db.ref(`${DB_ROOT}/topics`).once('value'),
+    student ? db.ref(`${DB_ROOT}/submissions`).once('value') : Promise.resolve({val:()=>({})})
   ]).then(([topicSnap, subSnap]) => {
     const topics = topicSnap.val() || {};
     const subsAll = subSnap.val() || {};
@@ -214,6 +214,9 @@ function renderTopicList(){
         el.onclick = () => { state.topicId = el.dataset.id; state.student = student; state.currentSubId = null; state.view='write'; render(); };
       });
     }
+  }).catch(err => {
+    console.error(err);
+    document.getElementById('topicListBox').innerHTML = `<div class="empty">주제를 불러오지 못했어요. 파이어베이스 설정과 데이터베이스 규칙을 확인해주세요.</div>`;
   });
 }
 
@@ -246,8 +249,8 @@ function renderEnterInfo(){
 /* ---------------- 학생: 글쓰기 (기존 글 있으면 불러오기 + 선생님 첨삭 보여주기) ---------------- */
 function renderWrite(){
   Promise.all([
-    db.ref(`${DB_ROOT}/topics/${state.topicId}`).once(),
-    db.ref(`${DB_ROOT}/submissions/${state.topicId}`).once()
+    db.ref(`${DB_ROOT}/topics/${state.topicId}`).once('value'),
+    db.ref(`${DB_ROOT}/submissions/${state.topicId}`).once('value')
   ]).then(([topicSnap, subSnap]) => {
     const topic = topicSnap.val();
     const subs = subSnap.val() || {};
@@ -391,8 +394,8 @@ function renderMyWritings(){
   document.getElementById('backBtn').onclick = () => { state.view='topicList'; render(); };
 
   Promise.all([
-    db.ref(`${DB_ROOT}/topics`).once(),
-    db.ref(`${DB_ROOT}/submissions`).once()
+    db.ref(`${DB_ROOT}/topics`).once('value'),
+    db.ref(`${DB_ROOT}/submissions`).once('value')
   ]).then(([topicSnap, subSnap]) => {
     const topics = topicSnap.val() || {};
     const subs = subSnap.val() || {};
@@ -437,8 +440,8 @@ function renderRecommended(){
   document.getElementById('backBtn').onclick = () => { state.view='topicList'; render(); };
 
   Promise.all([
-    db.ref(`${DB_ROOT}/topics`).once(),
-    db.ref(`${DB_ROOT}/submissions`).once()
+    db.ref(`${DB_ROOT}/topics`).once('value'),
+    db.ref(`${DB_ROOT}/submissions`).once('value')
   ]).then(([topicSnap, subSnap]) => {
     const topics = topicSnap.val() || {};
     const subs = subSnap.val() || {};
@@ -515,14 +518,14 @@ function renderTeacherHome(){
     btn.disabled = true;
     status.textContent = 'AI가 주제를 생각하는 중이에요...';
     try{
-      const existingSnap = await db.ref(`${DB_ROOT}/topics`).once();
+      const existingSnap = await db.ref(`${DB_ROOT}/topics`).once('value');
       const existingTitles = Object.values(existingSnap.val() || {}).map(t => t.title);
       const prompt = `초등학교 5학년 학생 대상 인성교육(감정 조절, 마음 표현) 글쓰기 활동을 위한 새 주제를 하나 추천해 주세요.
 ${existingTitles.length ? `이미 있는 주제들 (겹치지 않게 새로운 것으로): ${existingTitles.join(', ')}` : ''}
 아이들이 자기 경험과 감정을 구체적으로 떠올려 쓸 수 있는 주제로, 매번 다른 상황/감정을 다루도록 만들어 주세요.
 아래 JSON 형식으로만 답해주세요:
 {"title": "짧고 친근한 질문 형태의 주제 제목 (한 문장)", "description": "학생에게 줄 글쓰기 안내 2~3문장 — 어떤 내용을 담아 써야 하는지 구체적으로"}`;
-      const parsed = await callOpenAI(prompt);
+      const parsed = await callGemini(prompt);
       document.getElementById('newTopicInput').value = parsed.title || '';
       document.getElementById('newTopicDescInput').value = parsed.description || '';
       status.textContent = '추천된 주제예요. 마음에 안 들면 고치거나 다시 추천받아보세요.';
@@ -537,7 +540,7 @@ ${existingTitles.length ? `이미 있는 주제들 (겹치지 않게 새로운 �
 }
 
 function loadTeacherTopics(){
-  db.ref(`${DB_ROOT}/topics`).once().then(snap => {
+  db.ref(`${DB_ROOT}/topics`).once('value').then(snap => {
     const topics = snap.val() || {};
     const ids = Object.keys(topics).sort((a,b)=> (topics[b].createdAt||0)-(topics[a].createdAt||0));
     const box = document.getElementById('teacherTopicBox');
@@ -576,12 +579,16 @@ function loadTeacherTopics(){
         }
       };
     });
+  }).catch(err => {
+    console.error(err);
+    const box = document.getElementById('teacherTopicBox');
+    if(box) box.innerHTML = `<div class="empty">주제를 불러오지 못했어요. 파이어베이스 설정과 데이터베이스 규칙을 확인해주세요.</div>`;
   });
 }
 
 /* ---------------- 선생님: 주제별 제출 글 + 추천 승인 + 첨삭 진입 ---------------- */
 function renderTeacherTopic(){
-  db.ref(`${DB_ROOT}/topics/${state.topicId}`).once().then(topicSnap => {
+  db.ref(`${DB_ROOT}/topics/${state.topicId}`).once('value').then(topicSnap => {
     const topic = topicSnap.val();
     app.innerHTML = `
       <button class="back" id="backBtn">‹ 주제 목록으로</button>
@@ -592,7 +599,7 @@ function renderTeacherTopic(){
     `;
     document.getElementById('backBtn').onclick = () => { state.view='teacherHome'; render(); };
 
-    db.ref(`${DB_ROOT}/submissions/${state.topicId}`).once().then(subSnap => {
+    db.ref(`${DB_ROOT}/submissions/${state.topicId}`).once('value').then(subSnap => {
       const subs = subSnap.val() || {};
       const ids = Object.keys(subs).sort((a,b)=> (subs[b].updatedAt||subs[b].createdAt) - (subs[a].updatedAt||subs[a].createdAt));
       const box = document.getElementById('subsBox');
@@ -781,8 +788,8 @@ function diffToHtml(origText, correctedText){
 /* ---------------- 선생님: 첨삭 에디터 (자동 비교) ---------------- */
 function renderTeacherMarkup(){
   Promise.all([
-    db.ref(`${DB_ROOT}/topics/${state.topicId}`).once(),
-    db.ref(`${DB_ROOT}/submissions/${state.topicId}/${state.currentSubId}`).once()
+    db.ref(`${DB_ROOT}/topics/${state.topicId}`).once('value'),
+    db.ref(`${DB_ROOT}/submissions/${state.topicId}/${state.currentSubId}`).once('value')
   ]).then(([topicSnap, subSnap]) => {
     const topic = topicSnap.val();
     const sub = subSnap.val();
@@ -856,27 +863,23 @@ function renderTeacherMarkup(){
   });
 }
 
-/* ---------------- AI 호출 공통 함수 (OpenAI ChatGPT API) ---------------- */
-async function callOpenAI(prompt){
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+/* ---------------- AI 호출 공통 함수 (Google Gemini API) ---------------- */
+async function callGemini(prompt){
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${OPENAI_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' }
-    })
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
   });
   if(!res.ok){
     const errText = await res.text();
-    throw new Error('OpenAI API 오류: ' + errText);
+    throw new Error('Gemini API 오류: ' + errText);
   }
   const data = await res.json();
-  const raw = data.choices?.[0]?.message?.content || '{}';
-  return JSON.parse(raw);
+  let raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  raw = raw.replace(/```json|```/g, '').trim();
+  const jsonStart = raw.indexOf('{');
+  const jsonEnd = raw.lastIndexOf('}');
+  return JSON.parse(raw.slice(jsonStart, jsonEnd + 1));
 }
 
 /* ---------------- AI 내용 피드백 ---------------- */
@@ -894,7 +897,7 @@ ${text}
 
 아래 JSON 형식으로만 답해주세요:
 {"contentFeedback": "내용에 대한 피드백 2~3문장 — 먼저 주제에 맞게 썼는지 짚고, 그 다음 표현의 구체성을 따뜻하게, 초등학생이 이해하기 쉬운 말로", "recommend": true 또는 false (주제에 맞게, 자기 생각과 감정을 솔직하고 구체적으로 잘 표현했다면 true)}`;
-  const parsed = await callOpenAI(prompt);
+  const parsed = await callGemini(prompt);
   return { contentFeedback: parsed.contentFeedback, recommend: !!parsed.recommend };
 }
 
