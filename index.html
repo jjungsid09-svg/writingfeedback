@@ -65,6 +65,9 @@
   .pending-card h2{color:#c0392b;}
   .pending-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border:1px solid #f3caca;border-radius:9px;margin-bottom:8px;cursor:pointer;background:#fff;}
   .badge.pending{background:#fde2e0;color:#c0392b;}
+  .done-card{border-left:4px solid #2fa86b;background:#f2faf5;}
+  .done-card h2{color:#2fa86b;}
+  .done-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border:1px solid #cdebd8;border-radius:9px;margin-bottom:8px;cursor:pointer;background:#fff;}
   .del-x{background:none;border:none;color:#c0392b;font-size:20px;font-weight:700;cursor:pointer;line-height:1;padding:2px 6px;border-radius:6px;}
   .del-x:hover{background:#fde2e0;}
   .del-x.confirming{font-size:12px;font-weight:700;background:#fde2e0;padding:4px 8px;}
@@ -177,12 +180,15 @@ function renderTopicList(){
   ]).then(([topicSnap, subSnap]) => {
     const topics = topicSnap.val() || {};
     const subsAll = subSnap.val() || {};
-    const pendingTopicIds = new Set();
+    const statusMap = new Map(); // topicId -> 'sent' | 'done'
 
     if(student){
       Object.keys(subsAll).forEach(topicId => {
         Object.values(subsAll[topicId]).forEach(s => {
-          if(sameStudent(s, student) && s.teacherSent) pendingTopicIds.add(topicId);
+          if(sameStudent(s, student)){
+            if(s.teacherDone) statusMap.set(topicId, 'done');
+            else if(s.teacherSent) statusMap.set(topicId, 'sent');
+          }
         });
       });
     }
@@ -191,24 +197,33 @@ function renderTopicList(){
       .filter(id => topicDateStr(topics[id]) === todayStr())
       .sort((a,b)=> (topics[b].createdAt||0)-(topics[a].createdAt||0));
     const box = document.getElementById('topicListBox');
-    if(!ids.length){ box.innerHTML = `<div class="empty">오늘 등록된 주제가 아직 없어요. 선생님을 기다려주세요!</div>`; return; }
-    box.innerHTML = ids.map(id => `
+    if(!ids.length){ box.innerHTML = `<div class="empty">오늘 등록된 주제가 아직 없어요. 선생님을 기다려주세요!</div>`; }
+    else {
+    box.innerHTML = ids.map(id => {
+      const st = statusMap.get(id);
+      const badge = st === 'done' ? '<span class="badge ok">완료!</span>' : st === 'sent' ? '<span class="badge pending">첨삭 도착</span>' : '';
+      return `
       <div class="topic-item" data-id="${id}">
-        <div class="title">${esc(topics[id].title)} ${pendingTopicIds.has(id) ? '<span class="badge pending">첨삭 도착</span>' : ''}</div>
+        <div class="title">${esc(topics[id].title)} ${badge}</div>
         <div class="count">›</div>
       </div>
-    `).join('');
+    `;
+    }).join('');
     box.querySelectorAll('.topic-item').forEach(el => {
       el.onclick = () => { state.topicId = el.dataset.id; state.student = state.student || student; state.currentSubId = null; state.view = state.student ? 'write' : 'enterInfo'; render(); };
     });
+    }
 
+    const sentIds = [...statusMap.entries()].filter(([,v]) => v==='sent').map(([k])=>k);
+    const doneIds = [...statusMap.entries()].filter(([,v]) => v==='done').map(([k])=>k);
     const slot = document.getElementById('pendingCardSlot');
-    if(pendingTopicIds.size){
-      slot.innerHTML = `
+    let slotHtml = '';
+    if(sentIds.length){
+      slotHtml += `
         <div class="card pending-card">
           <h2>📬 선생님 첨삭이 도착했어요!</h2>
           <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">눌러서 확인하고 고쳐 써보세요.</div>
-          ${[...pendingTopicIds].map(id => `
+          ${sentIds.map(id => `
             <div class="pending-item" data-id="${id}">
               <span>${esc(topics[id].title)}</span>
               <span style="color:var(--primary);">수정하러 가기 ›</span>
@@ -216,10 +231,25 @@ function renderTopicList(){
           `).join('')}
         </div>
       `;
-      slot.querySelectorAll('.pending-item').forEach(el => {
-        el.onclick = () => { state.topicId = el.dataset.id; state.student = student; state.currentSubId = null; state.view='write'; render(); };
-      });
     }
+    if(doneIds.length){
+      slotHtml += `
+        <div class="card done-card">
+          <h2>🎉 완료된 글이 있어요!</h2>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">선생님이 확인 완료했어요. 더 안 고쳐도 돼요.</div>
+          ${doneIds.map(id => `
+            <div class="done-item" data-id="${id}">
+              <span>${esc(topics[id].title)}</span>
+              <span style="color:#2fa86b;">확인하기 ›</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+    slot.innerHTML = slotHtml;
+    slot.querySelectorAll('.pending-item, .done-item').forEach(el => {
+      el.onclick = () => { state.topicId = el.dataset.id; state.student = student; state.currentSubId = null; state.view='write'; render(); };
+    });
   }).catch(err => {
     console.error(err);
     document.getElementById('topicListBox').innerHTML = `<div class="empty">주제를 불러오지 못했어요. 파이어베이스 설정과 데이터베이스 규칙을 확인해주세요.</div>`;
@@ -272,7 +302,8 @@ function renderWrite(){
         <h2>${esc(topic.title)}</h2>
         <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">${esc(state.student.number)}번 ${esc(state.student.name)}</div>
         ${topic.description ? `<div class="notice" style="color:var(--text);border-style:solid;white-space:pre-wrap;">📋 ${esc(topic.description)}</div>` : ''}
-        ${existing && existing.teacherSent && existing.teacherMarkup ? `<div class="fb-teacher"><span class="fb-label">👩‍🏫 선생님 피드백 (빨간 글씨 = 고칠 부분)</span>${existing.teacherMarkup}</div>` : ''}
+        ${existing && existing.teacherDone ? `<div class="fb-teacher" style="background:#f2faf5;border-color:#cdebd8;color:#1c3d2a;"><span class="fb-label" style="color:#2fa86b;">🎉 완료!</span>선생님이 확인했어요. 정말 잘 썼어요, 더 안 고쳐도 돼요!</div>` : ''}
+        ${existing && !existing.teacherDone && existing.teacherSent && existing.teacherMarkup ? `<div class="fb-teacher"><span class="fb-label">👩‍🏫 선생님 피드백 (빨간 글씨 = 고칠 부분)</span>${existing.teacherMarkup}</div>` : ''}
         ${existing ? `<div class="notice">✏️ 이미 제출한 글이 있어요. 아래에서 고쳐서 다시 제출할 수 있어요.</div>` : ''}
         <textarea id="writeArea" placeholder="이곳에 글을 써주세요...">${existing ? esc(existing.text) : ''}</textarea>
         <div class="checkbox-row">
@@ -315,7 +346,9 @@ function renderWrite(){
           text,
           teacherApproved: existing ? !!existing.teacherApproved : false,
           teacherMarkup: null,
+          teacherCorrectedText: null,
           teacherSent: false,
+          teacherDone: false,
           optOut,
           createdAt: existing ? existing.createdAt : Date.now(),
           updatedAt: Date.now()
@@ -414,11 +447,12 @@ function renderMyWritings(){
       let badge = '';
       if(s.optOut) badge = `<span class="badge wait">추천 금지</span>`;
       else if(s.teacherApproved) badge = `<span class="badge ok">추천 승인됨</span>`;
+      const doneBadge = s.teacherDone ? `<span class="badge ok">완료!</span>` : '';
       return `
         <div class="sub-item">
-          <div class="meta">${esc(s.topicTitle)} ${badge}</div>
+          <div class="meta">${esc(s.topicTitle)} ${badge} ${doneBadge}</div>
           <div class="text">${esc(s.text)}</div>
-          ${s.teacherSent && s.teacherMarkup ? `<div class="fb-teacher"><span class="fb-label">👩‍🏫 선생님 피드백</span>${s.teacherMarkup}</div>` : ''}
+          ${s.teacherDone ? `<div class="fb-teacher" style="background:#f2faf5;border-color:#cdebd8;color:#1c3d2a;"><span class="fb-label" style="color:#2fa86b;">🎉 완료!</span>선생님이 확인했어요. 정말 잘 썼어요, 더 안 고쳐도 돼요!</div>` : (s.teacherSent && s.teacherMarkup ? `<div class="fb-teacher"><span class="fb-label">👩‍🏫 선생님 피드백</span>${s.teacherMarkup}</div>` : '')}
           <button class="btn small" data-edit="${s.topicId}" style="margin-top:10px;">이 글 수정하기</button>
         </div>
       `;
@@ -589,12 +623,14 @@ function renderTeacherTopic(){
         if(s.optOut) badge = `<span class="badge wait">추천 금지</span>`;
         else if(s.teacherApproved) badge = `<span class="badge ok">추천 승인됨</span>`;
         const sentBadge = s.teacherSent ? `<span class="badge sent">첨삭 전송됨</span>` : '';
+        const doneBadge = s.teacherDone ? `<span class="badge ok">완료!</span>` : '';
         return `
           <div class="sub-item">
-            <div class="meta">${esc(s.number)}번 ${esc(s.name)} ${badge} ${sentBadge}</div>
+            <div class="meta">${esc(s.number)}번 ${esc(s.name)} ${badge} ${sentBadge} ${doneBadge}</div>
             <div class="text">${esc(s.text)}</div>
             <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
               <button class="btn small" data-markup="${id}">${s.teacherSent ? '다시 첨삭하기' : '첨삭하기'}</button>
+              <button class="btn small secondary" data-done="${id}">${s.teacherDone ? '완료 취소' : '✅ 완료로 표시'}</button>
               ${!s.optOut ? (!s.teacherApproved
                   ? `<button class="btn small secondary" data-approve="${id}">추천 승인하기</button>`
                   : `<button class="btn small secondary" data-unapprove="${id}">승인 취소</button>`) : ''}
@@ -608,6 +644,16 @@ function renderTeacherTopic(){
       });
       box.querySelectorAll('[data-unapprove]').forEach(b => {
         b.onclick = () => db.ref(`${DB_ROOT}/submissions/${state.topicId}/${b.dataset.unapprove}`).update({teacherApproved:false}).then(()=>renderTeacherTopic());
+      });
+      box.querySelectorAll('[data-done]').forEach(b => {
+        b.onclick = () => {
+          const subId = b.dataset.done;
+          const isDone = subs[subId].teacherDone;
+          db.ref(`${DB_ROOT}/submissions/${state.topicId}/${subId}`).update({teacherDone: !isDone}).then(()=>{
+            showMsg(isDone ? '완료 표시를 취소했어요.' : '학생에게 완료를 알렸어요.');
+            renderTeacherTopic();
+          });
+        };
       });
       box.querySelectorAll('[data-markup]').forEach(b => {
         b.onclick = () => { state.currentSubId = b.dataset.markup; state.view='teacherMarkup'; render(); };
