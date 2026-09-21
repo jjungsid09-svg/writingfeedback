@@ -112,7 +112,7 @@ const firebaseConfig = {
   projectId: "writingfeedback-69661",
 };
 const TEACHER_PASSWORD = "0521";
-const DB_ROOT = "writingFeedbackApp"; // 다른 프로젝트(짝꿍칠판 등)와 같은 Firebase를 써도 이 이름으로 경로가 분리돼요
+const DB_ROOT = "writingFeedbackApp";
 const STUDENT_KEY = "wfStudentInfo";
 /* ====================================================================== */
 
@@ -554,6 +554,12 @@ function renderTeacherHome(){
       <button class="btn secondary" id="saveRosterBtn">학급 설정 저장</button>
       <div id="rosterSaveStatus" style="margin-top:8px;font-size:13px;color:var(--good);"></div>
     </div>
+    <div class="card">
+      <h2>📤 학생 글 모음 내보내기</h2>
+      <div class="notice">지금까지 학생들이 쓴 모든 글(주제·날짜·선생님 첨삭 여부 포함)을 번호순으로 정리해서 텍스트 파일로 내려받아요. 백업용으로도, 학기말 정리용으로도 쓰실 수 있어요.</div>
+      <button class="btn secondary" id="exportBtn">전체 글 내보내기 (.txt)</button>
+      <div id="exportStatus" style="margin-top:8px;font-size:13px;color:var(--muted);"></div>
+    </div>
   `;
   document.getElementById('addTopicBtn').onclick = () => {
     const title = document.getElementById('newTopicInput').value.trim();
@@ -581,6 +587,68 @@ function renderTeacherHome(){
     db.ref(`${DB_ROOT}/settings/roster`).set({ max, excluded }).then(()=>{
       document.getElementById('rosterSaveStatus').textContent = '저장했어요! 다음에 여는 주제 체크표부터 적용돼요.';
     });
+  };
+  document.getElementById('exportBtn').onclick = async () => {
+    const btn = document.getElementById('exportBtn');
+    const status = document.getElementById('exportStatus');
+    btn.disabled = true;
+    status.textContent = '글을 모으는 중이에요...';
+    try {
+      const [topicSnap, subSnap] = await Promise.all([
+        db.ref(`${DB_ROOT}/topics`).once('value'),
+        db.ref(`${DB_ROOT}/submissions`).once('value')
+      ]);
+      const topics = topicSnap.val() || {};
+      const subsAll = subSnap.val() || {};
+
+      const byStudent = {}; // "번호_이름" -> [{topicTitle, date, text, done, sent}]
+      Object.keys(subsAll).forEach(topicId => {
+        const topic = topics[topicId] || { title: '(삭제된 주제)' };
+        Object.values(subsAll[topicId]).forEach(s => {
+          const key = `${String(s.number).padStart(3,'0')}_${s.name}`;
+          if(!byStudent[key]) byStudent[key] = { number: s.number, name: s.name, items: [] };
+          byStudent[key].items.push({
+            topicTitle: topic.title,
+            date: dateStr(s.createdAt),
+            text: s.text,
+            done: !!s.teacherDone,
+            sent: !!s.teacherSent
+          });
+        });
+      });
+
+      const studentKeys = Object.keys(byStudent).sort();
+      if(!studentKeys.length){ status.textContent = '내보낼 글이 아직 없어요.'; btn.disabled = false; return; }
+
+      let out = `우리반 글쓰기 모음 (내보낸 날짜: ${todayStr()})\n`;
+      out += `${'='.repeat(50)}\n\n`;
+      studentKeys.forEach(key => {
+        const st = byStudent[key];
+        out += `■ ${st.number}번 ${st.name}\n${'-'.repeat(40)}\n`;
+        st.items
+          .sort((a,b)=> a.date.localeCompare(b.date))
+          .forEach(it => {
+            out += `[${it.date}] ${it.topicTitle}${it.done ? ' (완료)' : it.sent ? ' (첨삭 전송됨)' : ''}\n${it.text}\n\n`;
+          });
+        out += `\n`;
+      });
+
+      const blob = new Blob([out], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `우리반_글쓰기_모음_${todayStr()}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      status.textContent = `${studentKeys.length}명의 글을 내려받았어요.`;
+    } catch(e){
+      console.error(e);
+      status.textContent = '내보내는 중 문제가 생겼어요. 다시 시도해주세요.';
+    } finally {
+      btn.disabled = false;
+    }
   };
   loadTeacherTopics();
 }
