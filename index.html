@@ -69,7 +69,7 @@
   .done-card h2{color:#2fa86b;}
   .done-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border:1px solid #cdebd8;border-radius:9px;margin-bottom:8px;cursor:pointer;background:#fff;}
   .roster-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(46px,1fr));gap:6px;margin-top:10px;}
-  .roster-cell{aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--border);}
+  .roster-cell{aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--border);cursor:pointer;user-select:none;}
   .roster-num{font-size:11px;color:var(--muted);}
   .roster-mark{font-size:17px;font-weight:800;line-height:1.1;}
   .roster-empty{background:var(--bg);}
@@ -78,6 +78,9 @@
   .roster-submitted .roster-mark{color:#e08a2c;}
   .roster-done{background:#e4f7ec;border-color:#cdebd8;}
   .roster-done .roster-mark{color:#2fa86b;}
+  .roster-absent{background:#2b2f3a;border-color:#2b2f3a;}
+  .roster-absent .roster-num{color:#c7cad4;}
+  .roster-absent .roster-mark{color:#fff;}
   .del-x{background:none;border:none;color:#c0392b;font-size:20px;font-weight:700;cursor:pointer;line-height:1;padding:2px 6px;border-radius:6px;}
   .del-x:hover{background:#fde2e0;}
   .del-x.confirming{font-size:12px;font-weight:700;background:#fde2e0;padding:4px 8px;}
@@ -634,18 +637,27 @@ function renderTeacherTopic(){
         if(s.teacherDone) statusByNumber[num] = 'done';
         else if(statusByNumber[num] !== 'done') statusByNumber[num] = 'submitted';
       });
+      const absent = topic.absent || {};
       const rosterNumbers = [];
       for(let i=1;i<=25;i++){ if(i!==23) rosterNumbers.push(i); }
       document.getElementById('rosterBox').innerHTML = `
         <div class="roster-grid">
           ${rosterNumbers.map(n => {
+            const isAbsent = !!absent[n];
             const st = statusByNumber[String(n)];
-            const cls = st === 'done' ? 'roster-done' : st === 'submitted' ? 'roster-submitted' : 'roster-empty';
-            const mark = st === 'done' ? '○' : st === 'submitted' ? '△' : '';
-            return `<div class="roster-cell ${cls}"><div class="roster-num">${n}</div><div class="roster-mark">${mark}</div></div>`;
+            const cls = isAbsent ? 'roster-absent' : st === 'done' ? 'roster-done' : st === 'submitted' ? 'roster-submitted' : 'roster-empty';
+            const mark = isAbsent ? '' : st === 'done' ? '○' : st === 'submitted' ? '△' : '';
+            return `<div class="roster-cell ${cls}" data-num="${n}" title="눌러서 결석 표시/해제"><div class="roster-num">${n}</div><div class="roster-mark">${mark}</div></div>`;
           }).join('')}
         </div>
       `;
+      document.getElementById('rosterBox').querySelectorAll('.roster-cell').forEach(cell => {
+        cell.onclick = () => {
+          const n = cell.dataset.num;
+          const nowAbsent = !absent[n];
+          db.ref(`${DB_ROOT}/topics/${state.topicId}/absent/${n}`).set(nowAbsent ? true : null).then(()=> renderTeacherTopic());
+        };
+      });
 
       const ids = Object.keys(subs).sort((a,b)=> (subs[b].updatedAt||subs[b].createdAt) - (subs[a].updatedAt||subs[a].createdAt));
       const box = document.getElementById('subsBox');
