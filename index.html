@@ -173,7 +173,7 @@ function topicDateStr(topic){ return topic.scheduledDate || dateStr(topic.create
 function renderTopicList(){
   app.innerHTML = `
     <div class="card">
-      <h2>📚 오늘의 주제</h2>
+      <h2>📚 이번 주제는?</h2>
       <div id="topicListBox" class="loading">불러오는 중...</div>
     </div>
     <div class="card" style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -207,10 +207,10 @@ function renderTopicList(){
     }
 
     const ids = Object.keys(topics)
-      .filter(id => topicDateStr(topics[id]) === todayStr())
+      .filter(id => topics[id].open !== false)
       .sort((a,b)=> (topics[b].createdAt||0)-(topics[a].createdAt||0));
     const box = document.getElementById('topicListBox');
-    if(!ids.length){ box.innerHTML = `<div class="empty">오늘 등록된 주제가 아직 없어요. 선생님을 기다려주세요!</div>`; }
+    if(!ids.length){ box.innerHTML = `<div class="empty">지금 진행 중인 주제가 없어요. 선생님을 기다려주세요!</div>`; }
     else {
     box.innerHTML = ids.map(id => {
       const st = statusMap.get(id);
@@ -550,7 +550,7 @@ function renderTeacherHome(){
     const description = document.getElementById('newTopicDescInput').value.trim();
     const scheduledDate = document.getElementById('newTopicDateInput').value || todayStr();
     if(!title) return;
-    db.ref(`${DB_ROOT}/topics`).push({title, description, scheduledDate, createdAt: Date.now()}).then(()=>{
+    db.ref(`${DB_ROOT}/topics`).push({title, description, scheduledDate, open: true, createdAt: Date.now()}).then(()=>{
       document.getElementById('newTopicInput').value='';
       document.getElementById('newTopicDescInput').value='';
       document.getElementById('newTopicDateInput').value = todayStr();
@@ -571,10 +571,13 @@ function loadTeacherTopics(){
     box.innerHTML = ids.map(id => {
       const d = topicDateStr(topics[id]);
       const dateBadge = d === today ? `<span class="badge ok">오늘 ${esc(d)}</span>` : `<span class="badge wait">${esc(d)}</span>`;
+      const isOpen = topics[id].open !== false;
+      const openBadge = isOpen ? '' : '<span class="badge wait" style="background:#eee;color:#888;">닫힘</span>';
       return `
       <div class="topic-item" data-id="${id}">
-        <div class="title">${esc(topics[id].title)} ${dateBadge}</div>
-        <div style="display:flex;align-items:center;gap:10px;">
+        <div class="title">${esc(topics[id].title)} ${dateBadge} ${openBadge}</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button type="button" class="btn small secondary" data-toggle="${id}">${isOpen ? '닫기' : '다시 열기'}</button>
           <span class="count">제출글 보기 ›</span>
           <button type="button" class="del-x" data-del="${id}" title="주제 삭제">×</button>
         </div>
@@ -583,8 +586,19 @@ function loadTeacherTopics(){
     }).join('');
     box.querySelectorAll('.topic-item').forEach(el => {
       el.onclick = (e) => {
-        if(e.target.closest('.del-x')) return;
+        if(e.target.closest('.del-x') || e.target.closest('[data-toggle]')) return;
         state.topicId = el.dataset.id; state.view='teacherTopic'; render();
+      };
+    });
+    box.querySelectorAll('[data-toggle]').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const topicId = btn.dataset.toggle;
+        const nowOpen = topics[topicId].open === false;
+        db.ref(`${DB_ROOT}/topics/${topicId}`).update({open: nowOpen}).then(()=>{
+          showMsg(nowOpen ? '학생들에게 다시 보여요.' : '학생들에게 안 보이게 닫았어요.');
+          loadTeacherTopics();
+        });
       };
     });
     box.querySelectorAll('.del-x').forEach(btn => {
