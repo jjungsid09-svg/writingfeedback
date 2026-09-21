@@ -628,7 +628,7 @@ function renderTeacherHome(){
         st.items
           .sort((a,b)=> a.date.localeCompare(b.date))
           .forEach(it => {
-            out += `[${it.date}] ${it.topicTitle}${it.done ? ' (완료)' : it.sent ? ' (첨삭 전송됨)' : ''}\n${it.text}\n\n`;
+            out += `[${it.date}] ${it.topicTitle}\n${it.text}\n\n`;
           });
         out += `\n`;
       });
