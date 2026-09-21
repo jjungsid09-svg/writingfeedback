@@ -544,6 +544,16 @@ function renderTeacherHome(){
       <h2>주제 목록</h2>
       <div id="teacherTopicBox" class="loading">불러오는 중...</div>
     </div>
+    <div class="card">
+      <h2>👥 학급 설정</h2>
+      <div class="notice">제출 체크표(1~25번 등)에 쓰이는 번호 범위예요. 학년이 바뀌어 학생 수나 번호가 달라지면 여기서 바꿔주세요.</div>
+      <label>총 학생 수 (번호 1번부터 이 숫자까지)</label>
+      <input type="text" id="rosterMaxInput" inputmode="numeric" placeholder="예: 25">
+      <label>제외할 번호 (쉼표로 구분, 없으면 비워두기)</label>
+      <input type="text" id="rosterExcludedInput" placeholder="예: 23, 17">
+      <button class="btn secondary" id="saveRosterBtn">학급 설정 저장</button>
+      <div id="rosterSaveStatus" style="margin-top:8px;font-size:13px;color:var(--good);"></div>
+    </div>
   `;
   document.getElementById('addTopicBtn').onclick = () => {
     const title = document.getElementById('newTopicInput').value.trim();
@@ -555,6 +565,21 @@ function renderTeacherHome(){
       document.getElementById('newTopicDescInput').value='';
       document.getElementById('newTopicDateInput').value = todayStr();
       loadTeacherTopics();
+    });
+  };
+  db.ref(`${DB_ROOT}/settings/roster`).once('value').then(snap => {
+    const settings = snap.val() || { max: 25, excluded: [23] };
+    document.getElementById('rosterMaxInput').value = settings.max || 25;
+    document.getElementById('rosterExcludedInput').value = (settings.excluded || []).join(', ');
+  });
+  document.getElementById('saveRosterBtn').onclick = () => {
+    const max = parseInt(document.getElementById('rosterMaxInput').value, 10) || 25;
+    const excludedRaw = document.getElementById('rosterExcludedInput').value.trim();
+    const excluded = excludedRaw
+      ? excludedRaw.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n))
+      : [];
+    db.ref(`${DB_ROOT}/settings/roster`).set({ max, excluded }).then(()=>{
+      document.getElementById('rosterSaveStatus').textContent = '저장했어요! 다음에 여는 주제 체크표부터 적용돼요.';
     });
   };
   loadTeacherTopics();
@@ -628,8 +653,12 @@ function loadTeacherTopics(){
 
 /* ---------------- 선생님: 주제별 제출 글 + 추천 승인 + 첨삭 진입 ---------------- */
 function renderTeacherTopic(){
-  db.ref(`${DB_ROOT}/topics/${state.topicId}`).once('value').then(topicSnap => {
+  Promise.all([
+    db.ref(`${DB_ROOT}/topics/${state.topicId}`).once('value'),
+    db.ref(`${DB_ROOT}/settings/roster`).once('value')
+  ]).then(([topicSnap, rosterSnap]) => {
     const topic = topicSnap.val();
+    const rosterSettings = rosterSnap.val() || { max: 25, excluded: [23] };
     app.innerHTML = `
       <button class="back" id="backBtn">‹ 주제 목록으로</button>
       <div class="card">
@@ -652,8 +681,9 @@ function renderTeacherTopic(){
         else if(statusByNumber[num] !== 'done') statusByNumber[num] = 'submitted';
       });
       const absent = topic.absent || {};
+      const excludedSet = new Set(rosterSettings.excluded || []);
       const rosterNumbers = [];
-      for(let i=1;i<=25;i++){ if(i!==23) rosterNumbers.push(i); }
+      for(let i=1;i<=(rosterSettings.max||25);i++){ if(!excludedSet.has(i)) rosterNumbers.push(i); }
       document.getElementById('rosterBox').innerHTML = `
         <div class="roster-grid">
           ${rosterNumbers.map(n => {
