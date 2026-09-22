@@ -207,7 +207,7 @@ function renderTopicList(){
     }
 
     const ids = Object.keys(topics)
-      .filter(id => topics[id].open !== false)
+      .filter(id => topics[id].open !== false && topicDateStr(topics[id]) <= todayStr())
       .sort((a,b)=> (topics[b].createdAt||0)-(topics[a].createdAt||0));
     const box = document.getElementById('topicListBox');
     if(!ids.length){ box.innerHTML = `<div class="empty">지금 진행 중인 주제가 없어요. 선생님을 기다려주세요!</div>`; }
@@ -917,7 +917,7 @@ function cappedWs(ws){ return ws.length > 2 ? ws.slice(0, 2) : ws; }
 
 // 한 줄 안에서 단어 단위로 비교 (줄바꿈 없음, 들여쓰기는 이미 별도 처리됨)
 function wordDiffHtml(a, b){
-  const diff = mergeWhitespaceRuns(diffTokens(tokenize(a), tokenize(b)));
+  const diff = mergeWhitespaceRuns(diffTokens(a.split(''), b.split('')));
   let html = '';
   diff.forEach(({type, token}) => {
     if(isWhitespaceToken(token)){
