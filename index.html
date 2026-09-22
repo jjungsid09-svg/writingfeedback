@@ -860,45 +860,7 @@ function diffTokens(origTokens, newTokens){
   return result;
 }
 
-// 전체 opcode(equal/delete/insert) 반환 — 줄 단위 정렬에 사용
-function fullDiff(origTokens, newTokens){
-  const n = origTokens.length, m = newTokens.length;
-  const dp = Array.from({length:n+1}, () => new Array(m+1).fill(0));
-  for(let i=n-1;i>=0;i--){
-    for(let j=m-1;j>=0;j--){
-      dp[i][j] = origTokens[i]===newTokens[j] ? dp[i+1][j+1]+1 : Math.max(dp[i+1][j], dp[i][j+1]);
-    }
-  }
-  let i=0, j=0; const ops = [];
-  while(i<n && j<m){
-    if(origTokens[i]===newTokens[j] && dp[i][j]===dp[i+1][j+1]+1){ ops.push({type:'equal', a:origTokens[i], b:newTokens[j]}); i++; j++; }
-    else if(dp[i+1][j] >= dp[i][j+1]){ ops.push({type:'delete', a:origTokens[i]}); i++; }
-    else { ops.push({type:'insert', b:newTokens[j]}); j++; }
-  }
-  while(i<n){ ops.push({type:'delete', a:origTokens[i]}); i++; }
-  while(j<m){ ops.push({type:'insert', b:newTokens[j]}); j++; }
-  return ops;
-}
-
-// 연속된 delete+insert를 replace 쌍으로 묶음 (같은 줄이 살짝 바뀐 경우를 감지)
-function groupOps(ops){
-  const result = [];
-  let delBuf = [], insBuf = [];
-  function flush(){
-    const pairs = Math.min(delBuf.length, insBuf.length);
-    for(let k=0;k<pairs;k++) result.push({type:'replace', a:delBuf[k], b:insBuf[k]});
-    for(let k=pairs;k<insBuf.length;k++) result.push({type:'new', b:insBuf[k]});
-    delBuf=[]; insBuf=[];
-  }
-  ops.forEach(op=>{
-    if(op.type==='equal'){ flush(); result.push(op); }
-    else if(op.type==='delete'){ delBuf.push(op.a); }
-    else { insBuf.push(op.b); }
-  });
-  flush();
-  return result;
-}
-
+// 전체 텍스트를 글자 단위로 통째로 비교 (줄바꿈·띄어쓰기·단어 모두 같은 방식으로, 필요한 부분만 정확히 표시)
 function mergeWhitespaceRuns(diff){
   const merged = [];
   for(const item of diff){
@@ -912,52 +874,18 @@ function mergeWhitespaceRuns(diff){
   }
   return merged;
 }
-
 function cappedWs(ws){ return ws.length > 2 ? ws.slice(0, 2) : ws; }
 
-// 한 줄 안에서 단어 단위로 비교 (줄바꿈 없음, 들여쓰기는 이미 별도 처리됨)
-function wordDiffHtml(a, b){
-  const diff = mergeWhitespaceRuns(diffTokens(a.split(''), b.split('')));
+function diffToHtml(origText, correctedText){
+  const diff = mergeWhitespaceRuns(diffTokens(origText.split(''), correctedText.split('')));
   let html = '';
   diff.forEach(({type, token}) => {
-    if(isWhitespaceToken(token)){
+    if(token === '\n'){
+      html += type==='insert' ? '<span style="color:#c0392b;font-weight:700;">↵</span><br>' : '<br>';
+    } else if(isWhitespaceToken(token)){
       html += type==='insert' ? `<span style="background:#fadbd8;border-radius:3px;">${cappedWs(token)}</span>` : cappedWs(token);
     } else {
       html += type==='insert' ? `<span style="color:#c0392b;font-weight:700;">${esc(token)}</span>` : esc(token);
-    }
-  });
-  return html;
-}
-
-function splitLeadingWs(line){
-  const m = line.match(/^[ \t]*/);
-  return { ws: m[0], rest: line.slice(m[0].length) };
-}
-
-// 줄 단위로 먼저 정렬한 뒤, 같은 줄(또는 약간 바뀐 줄)은 그 안에서 들여쓰기·단어를 따로 비교
-function diffToHtml(origText, correctedText){
-  const origLines = origText.split('\n');
-  const corrLines = correctedText.split('\n');
-  const lineOps = groupOps(fullDiff(origLines, corrLines));
-  let html = '';
-  lineOps.forEach((op, idx) => {
-    if(idx > 0){
-      if(op.type === 'new') html += '<span style="color:#c0392b;font-weight:700;">↵</span>';
-      html += '<br>';
-    }
-    if(op.type === 'equal'){
-      const {ws, rest} = splitLeadingWs(op.a);
-      html += cappedWs(ws) + esc(rest);
-    } else if(op.type === 'replace'){
-      const o = splitLeadingWs(op.a), c = splitLeadingWs(op.b);
-      html += (c.ws !== o.ws)
-        ? `<span style="background:#fadbd8;border-radius:3px;">${cappedWs(c.ws)}</span>`
-        : cappedWs(c.ws);
-      html += wordDiffHtml(o.rest, c.rest);
-    } else { // 'new' — 완전히 새로 추가된 줄
-      const {ws, rest} = splitLeadingWs(op.b);
-      html += (ws ? `<span style="background:#fadbd8;border-radius:3px;">${cappedWs(ws)}</span>` : '')
-        + `<span style="color:#c0392b;font-weight:700;">${esc(rest)}</span>`;
     }
   });
   return html;
