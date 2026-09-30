@@ -2,991 +2,973 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>우리반 글쓰기</title>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>우리 반 그림책 도서관</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --primary:#4f7cff; --primary-dark:#3a5fd9; --bg:#f6f8fc; --card:#ffffff;
-    --text:#2b2f3a; --muted:#7a8194; --border:#e3e7f0; --good:#2fa86b; --warn:#e08a2c;
-    --btn-secondary-bg:#eef1f8; --btn-secondary-text:#2b2f3a;
-  }
-  @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"]){
-      --bg:#1a1c22; --card:#242730; --text:#eef0f5; --muted:#9aa0b0; --border:#383c48;
-      --btn-secondary-bg:#343846; --btn-secondary-text:#eef0f5;
-    }
-  }
-  :root[data-theme="dark"]{
-    --bg:#1a1c22; --card:#242730; --text:#eef0f5; --muted:#9aa0b0; --border:#383c48;
-    --btn-secondary-bg:#343846; --btn-secondary-text:#eef0f5;
-  }
-  *{box-sizing:border-box;}
-  body{margin:0;font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:var(--bg);color:var(--text);}
-  .previewBanner{background:#fff2e0;color:#8a5a12;text-align:center;font-size:13px;padding:8px;font-weight:600;}
-  header{background:var(--primary);color:#fff;padding:18px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
-  header h1{margin:0;font-size:20px;}
-  header nav button{background:rgba(255,255,255,.18);border:none;color:#fff;padding:8px 14px;border-radius:8px;margin-left:6px;cursor:pointer;font-size:14px;}
-  header nav button.active{background:#fff;color:var(--primary);font-weight:700;}
-  main{max-width:720px;margin:0 auto;padding:20px 16px 60px;}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(30,40,80,.04);}
-  .card h2{margin-top:0;font-size:18px;}
-  .topic-item{display:flex;justify-content:space-between;align-items:center;padding:14px;border:1px solid var(--border);border-radius:10px;margin-bottom:10px;cursor:pointer;background:var(--card);transition:.15s;}
-  .topic-item:hover{border-color:var(--primary);}
-  .topic-item .title{font-weight:700;}
-  .topic-item .count{color:var(--muted);font-size:13px;}
-  input[type=text], input[type=password], textarea{width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:15px;font-family:inherit;background:var(--card);color:var(--text);}
-  textarea{min-height:220px;resize:none;line-height:1.6;overflow:hidden;}
-  label{display:block;margin:10px 0 4px;font-size:14px;color:var(--muted);font-weight:600;}
-  button.btn{background:var(--primary);color:#fff;border:none;padding:12px 18px;border-radius:9px;font-size:15px;font-weight:700;cursor:pointer;margin-top:14px;}
-  button.btn:hover{background:var(--primary-dark);}
-  button.btn.secondary{background:var(--btn-secondary-bg);color:var(--btn-secondary-text);}
-  button.btn.small{padding:7px 12px;font-size:13px;margin-top:0;}
-  button.btn:disabled{opacity:.5;cursor:not-allowed;}
-  .checkbox-row{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:14px;color:var(--muted);}
-  .checkbox-row input{width:auto;}
-  .fb-section{border-radius:10px;padding:14px 16px;margin-top:12px;white-space:pre-wrap;line-height:1.7;font-size:14px;}
-  .fb-content{background:#eef7f0;color:#1c3d2a;border:1px solid #cdebd8;}
-  .fb-teacher{background:#fff8f0;color:#3a2c1c;border:1px solid #f3ddc0;line-height:1.8;font-size:14px;white-space:pre-wrap;}
-  .fb-label{font-weight:800;font-size:13px;margin-bottom:6px;display:block;}
-  .badge{display:inline-block;font-size:12px;padding:3px 9px;border-radius:20px;font-weight:700;}
-  .badge.wait{background:#fff2e0;color:var(--warn);}
-  .badge.ok{background:#e4f7ec;color:var(--good);}
-  .badge.sent{background:#e6edff;color:#3a5fd9;}
-  .sub-item{border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;}
-  .sub-item .meta{font-size:13px;color:var(--muted);margin-bottom:6px;}
-  .sub-item .text{white-space:pre-wrap;line-height:1.6;font-size:14px;margin:8px 0;}
-  .back{background:none;border:none;color:var(--primary);cursor:pointer;font-size:14px;margin-bottom:12px;padding:0;}
-  .loading{color:var(--muted);font-size:14px;}
-  .empty{color:var(--muted);text-align:center;padding:30px 0;font-size:14px;}
-  .rec-card{border-left:4px solid var(--primary);}
-  .pending-card{border-left:4px solid #c0392b;background:#fff5f5;}
-  .pending-card h2{color:#c0392b;}
-  .pending-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border:1px solid #f3caca;border-radius:9px;margin-bottom:8px;cursor:pointer;background:#fff;}
-  .badge.pending{background:#fde2e0;color:#c0392b;}
-  .done-card{border-left:4px solid #2fa86b;background:#f2faf5;}
-  .done-card h2{color:#2fa86b;}
-  .done-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border:1px solid #cdebd8;border-radius:9px;margin-bottom:8px;cursor:pointer;background:#fff;}
-  .roster-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(46px,1fr));gap:6px;margin-top:10px;}
-  .roster-cell{aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--border);cursor:pointer;user-select:none;}
-  .roster-num{font-size:11px;color:var(--muted);}
-  .roster-mark{font-size:17px;font-weight:800;line-height:1.1;}
-  .roster-empty{background:var(--bg);}
-  .roster-empty .roster-num{color:var(--muted);}
-  .roster-submitted{background:#fff2e0;border-color:#f3d9b0;}
-  .roster-submitted .roster-mark{color:#e08a2c;}
-  .roster-done{background:#e4f7ec;border-color:#cdebd8;}
-  .roster-done .roster-mark{color:#2fa86b;}
-  .roster-absent{background:#2b2f3a;border-color:#2b2f3a;}
-  .roster-absent .roster-num{color:#c7cad4;}
-  .roster-absent .roster-mark{color:#fff;}
-  .del-x{background:none;border:none;color:#c0392b;font-size:20px;font-weight:700;cursor:pointer;line-height:1;padding:2px 6px;border-radius:6px;}
-  .del-x:hover{background:#fde2e0;}
-  .del-x.confirming{font-size:12px;font-weight:700;background:#fde2e0;padding:4px 8px;}
-  .notice{font-size:13px;color:var(--muted);background:var(--bg);border:1px dashed var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;}
-  .toolbar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
-  .toolbar button{background:var(--btn-secondary-bg);color:var(--btn-secondary-text);border:1px solid var(--border);padding:7px 12px;border-radius:7px;font-size:13px;cursor:pointer;}
-  .previewDiff{border:1px solid var(--border);border-radius:8px;padding:14px;min-height:100px;white-space:pre-wrap;line-height:1.8;font-size:15px;background:var(--bg);color:var(--text);margin-top:14px;}
-  .orig-ref{font-size:13px;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;white-space:pre-wrap;margin-bottom:14px;}
+/* ============================================================
+   설정은 아래 <script> 맨 위 CONFIG에서 바꿔요.
+   ============================================================ */
+:root{
+  --paper:#EAF2FA; --ink:#1C2A48; --ink-soft:#56627D;
+  --sun:#FFC83D; --leaf:#2F9E77; --coral:#E1573F;
+  --wood:#B97E45; --wood-dark:#8A5A2E; --white:#fff; --line:#CBD7E6;
+  --display:"Jua","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --body:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;overflow-x:hidden;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:18px;line-height:1.6;-webkit-tap-highlight-color:transparent}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.btn{min-height:46px;padding:0 20px;border-radius:999px;background:var(--ink);color:#fff;font-family:var(--display);font-size:19px;display:inline-flex;align-items:center;gap:8px}
+.btn.sun{background:var(--sun);color:var(--ink)}
+.btn.ghost{background:transparent;color:var(--ink);border:2px solid var(--ink)}
+.btn.danger{background:var(--coral)}
+.btn.small{min-height:38px;font-size:16px;padding:0 14px}
+.wrap{max-width:1100px;margin:0 auto;padding:20px}
+
+/* ---------- 서가 ---------- */
+.hero{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;padding:28px 0 20px}
+.hero h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,6vw,56px);line-height:1.1;margin:0}
+.hero p{margin:6px 0 0;color:var(--ink-soft)}
+.shelf{--row:236px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));grid-auto-rows:var(--row);
+  padding:0 16px;border-radius:10px;background:
+  linear-gradient(to bottom,transparent calc(var(--row) - 20px),var(--wood) calc(var(--row) - 20px),var(--wood) calc(var(--row) - 6px),var(--wood-dark) calc(var(--row) - 6px));
+  background-size:100% var(--row);background-color:#DDE8F4}
+.bk{align-self:end;justify-self:center;margin-bottom:20px;width:128px;text-align:left}
+.cover{position:relative;width:128px;height:172px;border-radius:3px 8px 8px 3px;overflow:hidden;background:var(--c,#3E6FB0);
+  box-shadow:inset 7px 0 0 rgba(0,0,0,.18),3px 4px 0 rgba(28,42,72,.25);transition:transform .15s}
+.bk:active .cover,.bk:hover .cover{transform:translateY(-6px)}
+.cover img{width:100%;height:100%;object-fit:cover;display:block}
+.cover .ct{position:absolute;left:0;right:0;bottom:0;padding:8px 8px 8px 14px;background:rgba(255,255,255,.93);font-family:var(--display);font-size:15px;line-height:1.25;color:var(--ink)}
+.cover .ct small{display:block;font-family:var(--body);font-size:12px;color:var(--ink-soft)}
+.cover .num{position:absolute;left:12px;top:8px;background:var(--sun);color:var(--ink);font-family:var(--display);font-size:15px;padding:2px 9px;border-radius:999px}
+.example{display:flex;gap:22px;align-items:center;background:#FFF6D8;border-radius:14px;padding:18px 22px;margin-bottom:22px}
+.example .cover{flex:0 0 auto}
+.example h3{font-family:var(--display);font-weight:400;font-size:24px;margin:0 0 4px}
+.example p{margin:0 0 12px;color:var(--ink-soft)}
+@media(max-width:560px){.example{flex-direction:column;text-align:center}}
+.check{background:#fff;border-radius:14px;padding:18px 20px;margin-bottom:22px}
+.check h3{font-family:var(--display);font-weight:400;font-size:22px;margin:0}
+.check .top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.check .legend{font-size:14px;color:var(--ink-soft);display:flex;gap:14px;flex-wrap:wrap}
+.check .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.nums{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.nb{border-radius:12px;padding:8px 10px;text-align:left;border:2px dashed var(--line);color:var(--ink-soft);min-height:64px}
+.nb b{font-family:var(--display);font-weight:400;font-size:20px;color:var(--ink)}
+.nb span{display:block;font-size:14px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nb.start{border:2px solid var(--sun);background:#FFF6D8;color:var(--ink)}
+.nb.done{border:2px solid var(--leaf);background:#E3F4EC;color:var(--ink)}
+.empty{padding:40px 0;text-align:center;color:var(--ink-soft)}
+.foot{display:flex;justify-content:space-between;align-items:center;margin-top:28px;color:var(--ink-soft);font-size:14px}
+.demo{background:var(--sun);padding:10px 14px;border-radius:10px;font-size:15px;margin-top:8px}
+
+/* ---------- 상단바 ---------- */
+.bar{position:sticky;top:0;z-index:10;background:var(--paper);border-bottom:2px solid var(--line);padding-top:env(safe-area-inset-top,0px)}
+.bar .in{max-width:1100px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.bar h2{font-family:var(--display);font-weight:400;font-size:24px;margin:0;flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status{font-size:14px;color:var(--ink-soft)}
+.status.err{color:var(--coral);font-weight:bold}
+.tabs{display:flex;gap:6px;max-width:1100px;margin:0 auto;padding:0 20px}
+.tab{padding:10px 18px;border-radius:12px 12px 0 0;font-family:var(--display);font-size:18px;color:var(--ink-soft)}
+.tab[aria-selected=true]{background:var(--white);color:var(--ink)}
+.panel{background:var(--white);border-radius:0 14px 14px 14px;padding:22px;max-width:1060px;margin:0 20px}
+@media(min-width:1100px){.panel{margin:0 auto}}
+
+/* ---------- 뼈대 ---------- */
+.q{display:grid;grid-template-columns:44px 1fr;gap:4px 12px;padding:14px 0;border-bottom:1px dashed var(--line)}
+.q .n{grid-row:span 3;width:40px;height:40px;border-radius:50%;background:var(--paper);display:grid;place-items:center;font-family:var(--display);font-size:20px}
+.q.key .n{background:var(--sun)}
+.q label{font-family:var(--display);font-size:20px}
+.guide{margin:6px 0 0;font-size:15px;color:var(--ink-soft)}
+.guide.warn{color:var(--coral);font-weight:bold}
+.q .hint{font-size:14px;color:var(--ink-soft)}
+select,textarea,input[type=text],input[type=password]{width:100%;max-width:100%;overflow-wrap:anywhere;border:2px solid var(--line);border-radius:12px;padding:10px 12px;background:#FBFDFF;resize:vertical}
+textarea:focus,input:focus{border-color:var(--ink);outline:none}
+.card{margin-top:22px;padding:18px;border-radius:14px;background:#FFF6D8}
+.card h3{font-family:var(--display);font-weight:400;font-size:21px;margin:0 0 4px}
+.card p{margin:0 0 10px;font-size:15px;color:var(--ink-soft)}
+
+/* ---------- 쪽 쓰기 ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.chip{flex:0 0 auto;width:52px;height:52px;border-radius:12px;border:2px solid var(--line);font-family:var(--display);font-size:19px;position:relative;background:#fff}
+.chip.on{border-color:var(--ink);background:var(--ink);color:#fff}
+.chip.done::after{content:"";position:absolute;right:5px;top:5px;width:9px;height:9px;border-radius:50%;background:var(--leaf)}
+.chip.add{border-style:dashed;border-color:var(--ink);color:var(--ink);font-size:26px;line-height:1}
+.mini .ph{cursor:pointer}
+.edit{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px}
+.edit>div{min-width:0}
+@media(max-width:820px){.edit{grid-template-columns:1fr}}
+.field{margin-bottom:14px}
+.field>span{display:block;font-family:var(--display);font-size:18px;margin-bottom:4px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{padding:8px 14px;border-radius:999px;border:2px solid var(--line);font-size:15px}
+.seg button[aria-pressed=true]{border-color:var(--ink);background:var(--ink);color:#fff}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.mini{position:relative;width:100%;aspect-ratio:4/3;container-type:size;border-radius:6px;overflow:hidden;box-shadow:0 0 0 2px var(--line)}
+.pick{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+
+/* ---------- 그림책 쪽 (보기/미리보기 공통) ---------- */
+.pg{position:absolute;inset:0;background:#fff;display:grid;padding:5cqw;gap:4cqw;overflow:hidden}
+.pg .t{font-size:3.4cqw;line-height:1.75;overflow:hidden;min-height:0;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
+.pg .im{min-height:0;min-width:0;display:flex;align-items:center;justify-content:center}
+.pg .im img{max-width:100%;max-height:100%;object-fit:contain;border-radius:1.2cqw}
+.pg .ph{width:100%;height:100%;border:.4cqw dashed var(--line);border-radius:1.2cqw;display:grid;place-items:center;color:var(--ink-soft);font-size:2.6cqw}
+.pg .no{position:absolute;bottom:2cqw;right:3cqw;font-size:2.2cqw;color:var(--ink-soft)}
+.pg.side{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);align-items:center}
+.pg.top{grid-template-rows:minmax(0,1.5fr) minmax(0,1fr)}
+.pg>*{min-width:0}
+.pg.top .t{text-align:center}
+.pg.full{padding:0;display:block}
+.pg.full .im{position:absolute;inset:0}
+.pg.full .im img{width:100%;height:100%;max-width:none;object-fit:cover;border-radius:0}
+.pg.full .t{position:absolute;left:4cqw;right:4cqw;bottom:4cqw;max-height:40%;background:rgba(255,255,255,.9);border-radius:1.6cqw;padding:2.4cqw 3cqw}
+.pg.text{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);align-items:center;padding:7cqw 9cqw}
+.pg.text .t{max-height:100%;width:100%}
+.pg.text .t{font-size:3.8cqw;text-align:center}
+.pg.cv{background:var(--c,#3E6FB0);padding:0;display:block}
+.pg.cv .im{position:absolute;inset:6cqw 6cqw 26cqw}
+.pg.cv .ttl{position:absolute;left:6cqw;right:6cqw;bottom:6cqw;background:#fff;border-radius:1.6cqw;padding:2.6cqw 3.6cqw}
+.pg.cv .ttl b{display:block;font-family:var(--display);font-weight:400;font-size:5.4cqw;line-height:1.2}
+.pg.cv .ttl span{font-size:2.8cqw;color:var(--ink-soft)}
+.pg.end{align-content:center;justify-items:center;text-align:center}
+.pg.end b{font-family:var(--display);font-weight:400;font-size:9cqw}
+.pg.end span{font-size:3cqw;color:var(--ink-soft)}
+
+/* ---------- 보기(넘기는 책) ---------- */
+.reader{padding:18px 20px 30px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.stage{position:relative;width:min(100%,calc((100dvh - 190px)*4/3));aspect-ratio:4/3;perspective:2200px}
+.sheet{position:absolute;inset:0;container-type:size;border-radius:4px 12px 12px 4px;overflow:hidden;background:#fff;box-shadow:inset 10px 0 12px -8px rgba(0,0,0,.25),0 10px 24px rgba(28,42,72,.22)}
+.leaf{z-index:2;transform-origin:left center;backface-visibility:hidden;-webkit-backface-visibility:hidden;display:none}
+.nav{display:flex;align-items:center;gap:18px}
+.nav .cnt{font-family:var(--display);font-size:20px;min-width:80px;text-align:center}
+.nav button.arrow{width:58px;height:58px;border-radius:50%;background:var(--ink);color:#fff;font-size:26px}
+.nav button.arrow:disabled{opacity:.25}
+
+/* ---------- 감상평 ---------- */
+.talk{width:min(100%,calc((100dvh - 190px)*4/3));background:#fff;border-radius:14px;padding:18px 20px}
+.talk h3{font-family:var(--display);font-weight:400;font-size:22px;margin:0 0 10px}
+.talk .form{display:grid;grid-template-columns:130px minmax(0,1fr);gap:8px}
+@media(max-width:560px){.talk .form{grid-template-columns:1fr}}
+.talk .cnt2{font-size:14px;color:var(--ink-soft)}
+.cms{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}
+.cms li{background:var(--paper);border-radius:12px;padding:10px 14px;display:flex;gap:10px;align-items:flex-start}
+.cms li div{flex:1;min-width:0;overflow-wrap:anywhere}
+.cms b{font-family:var(--display);font-weight:400}
+.cms small{color:var(--ink-soft);margin-left:6px}
+.cms .x{color:var(--coral);font-size:14px;padding:4px 8px}
+
+/* ---------- 창 ---------- */
+dialog{border:0;border-radius:18px;padding:26px;max-width:min(420px,92vw);width:100%;color:var(--ink)}
+dialog::backdrop{background:rgba(28,42,72,.45)}
+dialog h3{font-family:var(--display);font-weight:400;font-size:26px;margin:0 0 14px}
+dialog .err{color:var(--coral);font-size:15px;min-height:22px;margin:6px 0}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
+.toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
+<div id="app"></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
-<header>
-  <h1>✏️ 우리반 글쓰기</h1>
-  <nav>
-    <button id="navStudent" class="active">학생</button>
-    <button id="navTeacher">선생님</button>
-  </nav>
-</header>
-
-<main id="app"></main>
+<dialog id="login">
+  <h3>내 책 열기</h3>
+  <div class="field"><span>번호</span><select id="lgNum"></select></div>
+  <p id="lgWho" style="margin:-4px 0 12px;font-size:15px;display:none"></p>
+  <div class="field" id="lgNameF"><span>이름</span><input type="text" id="lgName" autocomplete="off" placeholder="예: 하늘"></div>
+  <div class="field"><span>비밀번호 (숫자 4자리)</span><input type="password" id="lgPin" inputmode="numeric" maxlength="4" autocomplete="off"></div>
+  <p class="hint" style="font-size:14px;color:var(--ink-soft);margin:0">처음이면 지금 정한 비밀번호로 새 책이 만들어져요.</p>
+  <div class="err" id="lgErr"></div>
+  <div class="row" style="justify-content:flex-end">
+    <button class="btn ghost small" id="lgCancel">닫기</button>
+    <button class="btn sun" id="lgGo">책 열기</button>
+  </div>
+</dialog>
+<dialog id="ask">
+  <h3 id="askT"></h3>
+  <p id="askP" style="margin:0 0 12px;white-space:pre-wrap"></p>
+  <input type="text" id="askIn" style="display:none;margin-bottom:12px">
+  <textarea id="askTa" rows="5" readonly style="display:none;margin-bottom:12px"></textarea>
+  <div class="row" style="justify-content:flex-end">
+    <button class="btn ghost small" id="askNo">취소</button>
+    <button class="btn sun" id="askOk">확인</button>
+  </div>
+</dialog>
+<div class="toast" id="toast"></div>
 
 <script>
-/* ====================== 설정 (여기를 채워주세요) ====================== */
+/* ============================================================
+   ▼ 선생님이 바꾸는 곳
+   firebaseConfig : Firebase 콘솔 → 프로젝트 설정 → 내 앱(웹)에 있는
+                    firebaseConfig 내용을 그대로 붙여 넣으세요.
+                    비워 두면 '연습 모드'(이 기기에서만 저장)예요.
+   TEACHER_PIN    : 선생님 모드 비밀번호 (꼭 바꾸세요)
+   ============================================================ */
 const firebaseConfig = {
-  apiKey: "AIzaSyDX-JJW3aWodVgw-JdtmXRu6IRBB6ZLDaw",
-  authDomain: "writingfeedback-69661.firebaseapp.com",
-  databaseURL: "https://writingfeedback-69661-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "writingfeedback-69661",
+  apiKey: "AIzaSyCzF8Mmj9EqcQnuUvzE6mD4z42zbh0HwvA",
+  authDomain: "storybook-b37a3.firebaseapp.com",
+  projectId: "storybook-b37a3",
+  storageBucket: "storybook-b37a3.firebasestorage.app",
+  messagingSenderId: "987708299576",
+  appId: "1:987708299576:web:c7b234c7d0a6cf23c709cd"
 };
-const TEACHER_PASSWORD = "0521";
-const DB_ROOT = "writingFeedbackApp";
-const STUDENT_KEY = "wfStudentInfo";
-/* ====================================================================== */
+const CONFIG = {
+  TEACHER_PIN: "0000",
+  MAX_NUMBER: 25,       // 마지막 번호 (선생님 모드 '번호 설정'에서도 바꿀 수 있어요)
+  SKIP_NUMBERS: [23],   // 없는 번호
+  DEFAULT_PAGES: 1
+};
+/* ============================================================ */
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+const LIMITS = { side:[100,5], top:[80,4], full:[80,4], text:[150,7] };  // [권장 글자 수, 약 몇 문장]
+const LAYOUTS = [["side","그림 왼쪽"],["top","그림 위"],["full","그림 가득"],["text","글만"]];
+const COLORS = ["#3E6FB0","#2F9E77","#E1573F","#7A5BC7","#D98A1E","#1F8A9E","#C24C7A"];
 
-function saveStudentInfo(student){ localStorage.setItem(STUDENT_KEY, JSON.stringify(student)); }
-function loadStudentInfo(){ try{ return JSON.parse(localStorage.getItem(STUDENT_KEY)||'null'); }catch(e){ return null; } }
-
-const app = document.getElementById('app');
-const navStudent = document.getElementById('navStudent');
-const navTeacher = document.getElementById('navTeacher');
-
-let state = { role: 'student', view: 'topicList', topicId: null, teacherOk: false, student: null, currentSubId: null };
-
-navStudent.onclick = () => { state = {role:'student', view:'topicList', topicId:null, teacherOk:false, student:null, currentSubId:null}; setNav(); render(); };
-navTeacher.onclick = () => { state.role='teacher'; state.view = state.teacherOk ? 'teacherHome' : 'teacherLogin'; setNav(); render(); };
-
-function setNav(){
-  navStudent.classList.toggle('active', state.role==='student');
-  navTeacher.classList.toggle('active', state.role==='teacher');
+let DB = null;
+if (firebaseConfig.apiKey && firebaseConfig.projectId && window.firebase){
+  try { firebase.initializeApp(firebaseConfig); DB = firebase.firestore(); } catch(e){ console.error(e); }
 }
+const DEMO = !DB;
+const S = { view:"shelf", shelf:{}, id:null, book:null, imgs:{}, tab:"pages", page:0, idx:0, teacher:false, busy:false };
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const colorOf = id => COLORS[[...String(id)].reduce((a,c)=>a+c.charCodeAt(0),0) % COLORS.length];
 
-function esc(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function sameStudent(a,b){ return a && b && String(a.number).trim()===String(b.number).trim() && a.name.trim()===b.name.trim(); }
-
-function showMsg(msg){
-  let el = document.getElementById('toastMsg');
-  if(!el){
-    el = document.createElement('div');
-    el.id = 'toastMsg';
-    el.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#2b2f3a;color:#fff;padding:10px 18px;border-radius:8px;font-size:14px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.2);max-width:90%;text-align:center;';
-    document.body.appendChild(el);
+/* ---------- 저장소 (Firestore 또는 연습 모드) ----------
+   storybook_shelf/{책}   : 책장에 보이는 정보(제목, 지은이, 작은 표지)
+   storybook_books/{책}   : 책 내용(글, 쪽 모양, 비밀번호)
+   storybook_imgs/{책__쪽} : 그림 한 장씩 따로 저장
+*/
+const COL = { shelf:"storybook_shelf", books:"storybook_books", imgs:"storybook_imgs", comments:"storybook_comments" };
+async function api(method, path, body){
+  if (DEMO) return demoApi(method, path, body);
+  const [kind, id, key] = path.split("/");
+  if (kind === "comments"){
+    const col = DB.collection(COL.comments);
+    if (method === "GET"){
+      const snap = await col.where("book","==",id).get(); const out = {};
+      snap.forEach(d => out[d.id.split("__")[1]] = d.data()); return out;
+    }
+    if (method === "PUT") return col.doc(`${id}__${key}`).set({ ...body, book:id });
+    if (method === "DELETE"){
+      if (key) return col.doc(`${id}__${key}`).delete();
+      const snap = await col.where("book","==",id).get();
+      return Promise.all(snap.docs.map(d => d.ref.delete()));
+    }
   }
-  el.textContent = msg;
-  el.style.display = 'block';
-  clearTimeout(el._t);
-  el._t = setTimeout(()=>{ el.style.display='none'; }, 2200);
-}
-
-function autoGrow(el){
-  el.style.height = 'auto';
-  el.style.height = el.scrollHeight + 'px';
-}
-function isToday(ts){
-  const d = new Date(ts), now = new Date();
-  return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth() && d.getDate()===now.getDate();
-}
-function pad2(n){ return String(n).padStart(2,'0'); }
-function dateStr(ts){
-  const d = new Date(ts);
-  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-}
-function todayStr(){ return dateStr(Date.now()); }
-function topicDateStr(topic){ return topic.scheduledDate || dateStr(topic.createdAt); }
-
-/* ---------------- 학생: 주제 목록 ---------------- */
-function renderTopicList(){
-  app.innerHTML = `
-    <div class="card">
-      <h2>📚 이번 주제는?</h2>
-      <div id="topicListBox" class="loading">불러오는 중...</div>
-    </div>
-    <div class="card" style="display:flex;gap:10px;flex-wrap:wrap;">
-      <button class="btn secondary" id="goRecommended" style="flex:1;">🌟 친구들의 추천 글 보기</button>
-      <button class="btn secondary" id="goMyWritings" style="flex:1;">📝 내가 쓴 글 보기</button>
-    </div>
-    <div id="pendingCardSlot"></div>
-  `;
-  document.getElementById('goRecommended').onclick = () => { state.view='recommended'; render(); };
-  document.getElementById('goMyWritings').onclick = () => { state.view='myWritings'; render(); };
-
-  const student = loadStudentInfo();
-
-  Promise.all([
-    db.ref(`${DB_ROOT}/topics`).once('value'),
-    student ? db.ref(`${DB_ROOT}/submissions`).once('value') : Promise.resolve({val:()=>({})})
-  ]).then(([topicSnap, subSnap]) => {
-    const topics = topicSnap.val() || {};
-    const subsAll = subSnap.val() || {};
-    const statusMap = new Map(); // topicId -> 'sent' | 'done'
-
-    if(student){
-      Object.keys(subsAll).forEach(topicId => {
-        Object.values(subsAll[topicId]).forEach(s => {
-          if(sameStudent(s, student)){
-            if(s.teacherDone) statusMap.set(topicId, 'done');
-            else if(s.teacherSent) statusMap.set(topicId, 'sent');
-          }
-        });
-      });
+  if (kind === "imgs"){
+    const col = DB.collection(COL.imgs);
+    if (method === "GET"){
+      const snap = await col.where("book","==",id).get(); const out = {};
+      snap.forEach(d => out[d.data().key] = d.data().data); return out;
     }
-
-    const ids = Object.keys(topics)
-      .filter(id => topics[id].open !== false && topicDateStr(topics[id]) <= todayStr())
-      .sort((a,b)=> (topics[b].createdAt||0)-(topics[a].createdAt||0));
-    const box = document.getElementById('topicListBox');
-    if(!ids.length){ box.innerHTML = `<div class="empty">지금 진행 중인 주제가 없어요. 선생님을 기다려주세요!</div>`; }
-    else {
-    box.innerHTML = ids.map(id => {
-      const st = statusMap.get(id);
-      const badge = st === 'done' ? '<span class="badge ok">완료!</span>' : st === 'sent' ? '<span class="badge pending">첨삭 도착</span>' : '';
-      return `
-      <div class="topic-item" data-id="${id}">
-        <div class="title">${esc(topics[id].title)} ${badge}</div>
-        <div class="count">›</div>
-      </div>
-    `;
-    }).join('');
-    box.querySelectorAll('.topic-item').forEach(el => {
-      el.onclick = () => { state.topicId = el.dataset.id; state.student = state.student || student; state.currentSubId = null; state.view = state.student ? 'write' : 'enterInfo'; render(); };
-    });
+    if (method === "PUT") return col.doc(`${id}__${key}`).set({ book:id, key, data:body });
+    if (method === "DELETE"){
+      if (key) return col.doc(`${id}__${key}`).delete();
+      const snap = await col.where("book","==",id).get();
+      return Promise.all(snap.docs.map(d => d.ref.delete()));
     }
-
-    const sentIds = [...statusMap.entries()].filter(([,v]) => v==='sent').map(([k])=>k);
-    const doneIds = [...statusMap.entries()].filter(([,v]) => v==='done').map(([k])=>k);
-    const slot = document.getElementById('pendingCardSlot');
-    let slotHtml = '';
-    if(sentIds.length){
-      slotHtml += `
-        <div class="card pending-card">
-          <h2>📬 선생님 첨삭이 도착했어요!</h2>
-          <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">눌러서 확인하고 고쳐 써보세요.</div>
-          ${sentIds.map(id => `
-            <div class="pending-item" data-id="${id}">
-              <span>${esc(topics[id].title)}</span>
-              <span style="color:var(--primary);">수정하러 가기 ›</span>
-            </div>
-          `).join('')}
-        </div>
-      `;
-    }
-    if(doneIds.length){
-      slotHtml += `
-        <div class="card done-card">
-          <h2>🎉 완료된 글이 있어요!</h2>
-          <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">선생님이 확인 완료했어요. 더 안 고쳐도 돼요.</div>
-          ${doneIds.map(id => `
-            <div class="done-item" data-id="${id}">
-              <span>${esc(topics[id].title)}</span>
-              <span style="color:#2fa86b;">확인하기 ›</span>
-            </div>
-          `).join('')}
-        </div>
-      `;
-    }
-    slot.innerHTML = slotHtml;
-    slot.querySelectorAll('.pending-item, .done-item').forEach(el => {
-      el.onclick = () => { state.topicId = el.dataset.id; state.student = student; state.currentSubId = null; state.view='write'; render(); };
-    });
-  }).catch(err => {
-    console.error(err);
-    document.getElementById('topicListBox').innerHTML = `<div class="empty">주제를 불러오지 못했어요. 파이어베이스 설정과 데이터베이스 규칙을 확인해주세요.</div>`;
-  });
-}
-
-/* ---------------- 학생: 이름/번호 입력 ---------------- */
-function renderEnterInfo(){
-  const saved = loadStudentInfo();
-  app.innerHTML = `
-    <button class="back" id="backBtn">‹ 주제 목록으로</button>
-    <div class="card">
-      <h2>내 정보 입력</h2>
-      <label>번호</label>
-      <input type="text" id="numInput" placeholder="예: 5" inputmode="numeric" value="${saved ? esc(saved.number) : ''}">
-      <label>이름</label>
-      <input type="text" id="nameInput" placeholder="이름을 입력하세요" value="${saved ? esc(saved.name) : ''}">
-      <button class="btn" id="startWrite">글쓰기 시작하기</button>
-    </div>
-  `;
-  document.getElementById('backBtn').onclick = () => { state.view='topicList'; render(); };
-  document.getElementById('startWrite').onclick = () => {
-    const number = document.getElementById('numInput').value.trim();
-    const name = document.getElementById('nameInput').value.trim();
-    if(!name || !number){ showMsg('번호와 이름을 모두 입력해주세요.'); return; }
-    state.student = { name, number };
-    saveStudentInfo(state.student);
-    state.view = 'write';
-    render();
-  };
-}
-
-/* ---------------- 학생: 글쓰기 (기존 글 있으면 불러오기 + 선생님 첨삭 보여주기) ---------------- */
-function renderWrite(){
-  Promise.all([
-    db.ref(`${DB_ROOT}/topics/${state.topicId}`).once('value'),
-    db.ref(`${DB_ROOT}/submissions/${state.topicId}`).once('value')
-  ]).then(([topicSnap, subSnap]) => {
-    const topic = topicSnap.val();
-    const subs = subSnap.val() || {};
-    let existing = null, existingId = null;
-    Object.entries(subs).forEach(([id, s]) => {
-      if(sameStudent(s, state.student)){ existing = s; existingId = id; }
-    });
-    state.currentSubId = existingId;
-
-    app.innerHTML = `
-      <button class="back" id="backBtn">‹ 이전으로</button>
-      <div class="card">
-        <h2>${esc(topic.title)}</h2>
-        <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">${esc(state.student.number)}번 ${esc(state.student.name)}</div>
-        ${topic.description ? `<div class="notice" style="color:var(--text);border-style:solid;white-space:pre-wrap;">📋 ${esc(topic.description)}</div>` : ''}
-        ${existing && existing.teacherDone ? `<div class="fb-teacher" style="background:#f2faf5;border-color:#cdebd8;color:#1c3d2a;"><span class="fb-label" style="color:#2fa86b;">🎉 완료!</span>선생님이 확인했어요. 정말 잘 썼어요, 더 안 고쳐도 돼요!</div>` : ''}
-        ${existing && !existing.teacherDone && existing.teacherSent && existing.teacherMarkup ? `<div class="fb-teacher"><span class="fb-label">👩‍🏫 선생님 피드백 (빨간 글씨 = 고칠 부분)</span>${existing.teacherMarkup}</div>` : ''}
-        ${existing ? `<div class="notice">✏️ 이미 제출한 글이 있어요. 아래에서 고쳐서 다시 제출할 수 있어요.</div>` : ''}
-        <textarea id="writeArea" placeholder="이곳에 글을 써주세요...">${existing ? esc(existing.text) : ''}</textarea>
-        <div class="checkbox-row">
-          <input type="checkbox" id="optOutBox" ${existing && existing.optOut ? 'checked' : ''}>
-          <label style="margin:0;" for="optOutBox">내 글 추천금지 (친구들에게 공개되지 않아요)</label>
-        </div>
-        <button class="btn" id="submitBtn">${existing ? '수정해서 다시 제출하기' : '제출하기'}</button>
-        <div id="submitStatus" style="margin-top:10px;"></div>
-      </div>
-    `;
-    document.getElementById('backBtn').onclick = () => { state.view='enterInfo'; render(); };
-    const writeArea = document.getElementById('writeArea');
-    autoGrow(writeArea);
-    writeArea.addEventListener('input', () => autoGrow(writeArea));
-    writeArea.addEventListener('keydown', function(e){
-      if(e.key === 'Tab'){
-        e.preventDefault();
-        const start = this.selectionStart, end = this.selectionEnd;
-        const lineStart = this.value.lastIndexOf('\n', start - 1) + 1;
-        const beforeCursor = this.value.substring(lineStart, start);
-        if(/^[ \t]+$/.test(beforeCursor) && beforeCursor.length >= 2) return; // 이미 들여쓰기 되어 있으면 추가 안 함
-        this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
-        this.selectionStart = this.selectionEnd = start + 2;
-        autoGrow(this);
-      }
-    });
-    document.getElementById('submitBtn').onclick = async () => {
-      const raw = document.getElementById('writeArea').value;
-      if(!raw.trim()){ showMsg('글을 입력해주세요.'); return; }
-      const text = raw.replace(/\n+$/,''); // 뒤쪽 빈 줄만 정리, 앞쪽 들여쓰기는 그대로 유지
-      const optOut = document.getElementById('optOutBox').checked;
-      const btn = document.getElementById('submitBtn');
-      const status = document.getElementById('submitStatus');
-      btn.disabled = true;
-      status.innerHTML = `<span class="loading">제출하는 중이에요...</span>`;
-      try {
-        const payload = {
-          name: state.student.name,
-          number: state.student.number,
-          text,
-          teacherApproved: existing ? !!existing.teacherApproved : false,
-          teacherMarkup: null,
-          teacherCorrectedText: null,
-          teacherSent: false,
-          teacherDone: false,
-          optOut,
-          createdAt: existing ? existing.createdAt : Date.now(),
-          updatedAt: Date.now()
-        };
-        if(state.currentSubId){
-          await db.ref(`${DB_ROOT}/submissions/${state.topicId}/${state.currentSubId}`).update(payload);
-        } else {
-          const ref = await db.ref(`${DB_ROOT}/submissions/${state.topicId}`).push(payload);
-          state.currentSubId = ref.key;
-        }
-        state.view = 'feedback';
-        render();
-      } catch(e){
-        console.error(e);
-        status.innerHTML = `<span style="color:#c0392b;">제출 중 문제가 생겼어요. 다시 시도해주세요.</span>`;
-        btn.disabled = false;
-      }
-    };
-  });
-}
-
-/* ---------------- 학생: 피드백 결과 ---------------- */
-function renderFeedback(){
-  app.innerHTML = `
-    <div class="card">
-      <h2>✅ 제출 완료!</h2>
-      <div class="notice">선생님이 확인하고 첨삭해주실 거예요.</div>
-      <div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;">
-        <button class="btn" id="editBtn" style="flex:1;">수정하기</button>
-        <button class="btn secondary" id="doneBtn" style="flex:1;">주제 목록으로</button>
-      </div>
-    </div>
-  `;
-  document.getElementById('editBtn').onclick = () => { state.view='write'; render(); };
-  document.getElementById('doneBtn').onclick = () => { state.view='topicList'; render(); };
-}
-
-/* ---------------- 학생: 내가 쓴 글 보기 ---------------- */
-function renderMyWritings(){
-  if(!state.student){
-    const saved = loadStudentInfo();
-    if(saved) state.student = saved;
   }
-  if(!state.student){
-    app.innerHTML = `
-      <button class="back" id="backBtn">‹ 주제 목록으로</button>
-      <div class="card">
-        <h2>내가 쓴 글 보기</h2>
-        <div class="notice">확인하려면 먼저 이름과 번호를 입력해주세요.</div>
-        <label>번호</label>
-        <input type="text" id="numInput" inputmode="numeric">
-        <label>이름</label>
-        <input type="text" id="nameInput">
-        <button class="btn" id="goBtn">확인하기</button>
-      </div>
-    `;
-    document.getElementById('backBtn').onclick = () => { state.view='topicList'; render(); };
-    document.getElementById('goBtn').onclick = () => {
-      const number = document.getElementById('numInput').value.trim();
-      const name = document.getElementById('nameInput').value.trim();
-      if(!name || !number){ showMsg('번호와 이름을 모두 입력해주세요.'); return; }
-      state.student = { name, number };
-      saveStudentInfo(state.student);
-      render();
-    };
-    return;
+  const col = DB.collection(COL[kind]);
+  if (!id && method === "GET"){ const snap = await col.get(); const out = {}; snap.forEach(d => out[d.id] = d.data()); return out; }
+  const ref = col.doc(id);
+  if (method === "GET"){ const d = await ref.get(); return d.exists ? d.data() : null; }
+  if (method === "PUT") return ref.set(body);
+  if (method === "PATCH") return ref.set(body, { merge:true });
+  if (method === "DELETE") return ref.delete();
+}
+let MEM = null;
+function demoApi(method, path, body){
+  let tree = {};
+  if (MEM) tree = MEM;
+  else { try { tree = JSON.parse(localStorage.getItem("csb-demo") || "{}"); } catch(e){ MEM = tree; } }
+  const parts = path.split("/").filter(Boolean);
+  const last = parts.pop();
+  let node = tree;
+  for (const p of parts){
+    if (method === "GET" && (node[p] == null)) return null;
+    node = node[p] = node[p] || {};
   }
+  if (method === "GET") return JSON.parse(JSON.stringify(last ? node[last] ?? null : node));
+  if (method === "PUT") node[last] = body;
+  if (method === "PATCH") node[last] = Object.assign(node[last] || {}, body);
+  if (method === "DELETE") delete node[last];
+  if (!MEM){ try { localStorage.setItem("csb-demo", JSON.stringify(tree)); } catch(e){ MEM = tree; } }
+  return body ?? null;
+}
 
-  app.innerHTML = `
-    <button class="back" id="backBtn">‹ 주제 목록으로</button>
-    <div class="card">
-      <h2>📝 내가 쓴 글 (${esc(state.student.number)}번 ${esc(state.student.name)})</h2>
-      <div id="myBox" class="loading">불러오는 중...</div>
-    </div>
-  `;
-  document.getElementById('backBtn').onclick = () => { state.view='topicList'; render(); };
-
-  Promise.all([
-    db.ref(`${DB_ROOT}/topics`).once('value'),
-    db.ref(`${DB_ROOT}/submissions`).once('value')
-  ]).then(([topicSnap, subSnap]) => {
-    const topics = topicSnap.val() || {};
-    const subs = subSnap.val() || {};
-    let items = [];
-    Object.keys(subs).forEach(topicId => {
-      Object.entries(subs[topicId]).forEach(([subId, s]) => {
-        if(sameStudent(s, state.student)){
-          items.push({...s, topicId, topicTitle: topics[topicId] ? topics[topicId].title : ''});
-        }
-      });
-    });
-    items.sort((a,b)=> (b.updatedAt||b.createdAt) - (a.updatedAt||a.createdAt));
-    const box = document.getElementById('myBox');
-    if(!items.length){ box.innerHTML = `<div class="empty">아직 쓴 글이 없어요.</div>`; return; }
-    box.innerHTML = items.map(s => {
-      let badge = '';
-      if(s.optOut) badge = `<span class="badge wait">추천 금지</span>`;
-      else if(s.teacherApproved) badge = `<span class="badge ok">추천 승인됨</span>`;
-      const doneBadge = s.teacherDone ? `<span class="badge ok">완료!</span>` : '';
-      return `
-        <div class="sub-item">
-          <div class="meta">${esc(s.topicTitle)} ${badge} ${doneBadge}</div>
-          <div class="text">${esc(s.text)}</div>
-          ${s.teacherDone ? `<div class="fb-teacher" style="background:#f2faf5;border-color:#cdebd8;color:#1c3d2a;"><span class="fb-label" style="color:#2fa86b;">🎉 완료!</span>선생님이 확인했어요. 정말 잘 썼어요, 더 안 고쳐도 돼요!</div>` : (s.teacherSent && s.teacherMarkup ? `<div class="fb-teacher"><span class="fb-label">👩‍🏫 선생님 피드백</span>${s.teacherMarkup}</div>` : '')}
-          <button class="btn small" data-edit="${s.topicId}" style="margin-top:10px;">이 글 수정하기</button>
-        </div>
-      `;
-    }).join('');
-    box.querySelectorAll('[data-edit]').forEach(b => {
-      b.onclick = () => { state.topicId = b.dataset.edit; state.view='write'; render(); };
-    });
+/* ---------- 창 도우미 (prompt/confirm은 막히는 곳이 많아서 쓰지 않아요) ---------- */
+function openDlg(d){ if (d.showModal) { try { d.showModal(); return; } catch(e){} } d.setAttribute("open",""); }
+function closeDlg(d){ if (d.close) d.close(); else d.removeAttribute("open"); }
+function ask({ title, text="", input=null, copy=null, ok="확인", cancel="취소", danger=false }){
+  return new Promise(res => {
+    const d = $("#ask"), inp = $("#askIn"), ta = $("#askTa"), okB = $("#askOk"), noB = $("#askNo");
+    $("#askT").textContent = title; $("#askP").textContent = text;
+    inp.style.display = input ? "block" : "none"; inp.value = (input && input.value != null) ? input.value : "";
+    if (input){ inp.type = input.type || "text"; inp.placeholder = input.placeholder || ""; inp.inputMode = input.mode || "text"; }
+    ta.style.display = copy ? "block" : "none"; ta.value = copy || "";
+    okB.textContent = ok; okB.className = danger ? "btn danger" : "btn sun";
+    noB.textContent = cancel; noB.style.display = cancel ? "" : "none";
+    const done = v => { closeDlg(d); okB.onclick = noB.onclick = inp.onkeydown = null; res(v); };
+    okB.onclick = () => done(input ? inp.value : true);
+    noB.onclick = () => done(false);
+    inp.onkeydown = e => { if (e.key === "Enter") okB.click(); };
+    d.oncancel = e => { e.preventDefault(); done(false); };
+    openDlg(d);
+    if (input) setTimeout(() => inp.focus(), 50);
+    if (copy) setTimeout(() => { ta.focus(); ta.select(); }, 50);
   });
 }
 
-/* ---------------- 학생: 추천 글 모음 ---------------- */
-function renderRecommended(){
-  app.innerHTML = `
-    <button class="back" id="backBtn">‹ 주제 목록으로</button>
-    <div class="card"><h2>🌟 친구들의 추천 글</h2><div id="recBox" class="loading">불러오는 중...</div></div>
-  `;
-  document.getElementById('backBtn').onclick = () => { state.view='topicList'; render(); };
+/* ---------- 번호 ---------- */
+let ROSTER = { max:CONFIG.MAX_NUMBER, skip:CONFIG.SKIP_NUMBERS.slice() };
+async function loadRoster(){
+  try { const r = await api("GET","books/_settings"); if (r && r.max) ROSTER = { max:+r.max, skip:(r.skip||[]).map(Number) }; } catch(e){}
+}
+const rosterNums = () => Array.from({length:ROSTER.max}, (_,i) => i+1).filter(n => !ROSTER.skip.includes(n));
+const bookByNum = n => Object.entries(S.shelf).find(([,b]) => b.num != null && b.num !== "" && +b.num === +n);
+const isExample = b => b && b.num != null && b.num !== "" && +b.num === 0;   // 0번 = 선생님 예시 책
 
-  Promise.all([
-    db.ref(`${DB_ROOT}/topics`).once('value'),
-    db.ref(`${DB_ROOT}/submissions`).once('value')
-  ]).then(([topicSnap, subSnap]) => {
-    const topics = topicSnap.val() || {};
-    const subs = subSnap.val() || {};
-    let items = [];
-    Object.keys(subs).forEach(topicId => {
-      Object.entries(subs[topicId]).forEach(([subId, s]) => {
-        if(s.teacherApproved && !s.optOut){
-          items.push({...s, topicTitle: topics[topicId] ? topics[topicId].title : ''});
-        }
-      });
-    });
-    items.sort((a,b)=> b.createdAt - a.createdAt);
-    const box = document.getElementById('recBox');
-    if(!items.length){ box.innerHTML = `<div class="empty">아직 추천된 글이 없어요.</div>`; return; }
-    box.innerHTML = items.map(s => `
-      <div class="sub-item rec-card">
-        <div class="meta">${esc(s.topicTitle)} · ${esc(s.number)}번 ${esc(s.name)}</div>
-        <div class="text">${esc(s.text)}</div>
+/* ---------- 도우미 ---------- */
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove("on"),2200); }
+function normalize(b){
+  const pages = (Array.isArray(b.pages) ? b.pages : Object.values(b.pages || {})).filter(Boolean)
+    .map(p => ({ pid:p.pid || uid(), text:p.text || "", layout:p.layout || "side", hasImg:!!p.hasImg }));
+  return { ...b, title:b.title || "", pages };
+}
+function newBook(name, pin, num){
+  return { author:name, pin, num, title:`${name}의 이야기`,
+    pages:Array.from({length:CONFIG.DEFAULT_PAGES}, () => ({ pid:uid(), text:"", layout:"side", hasImg:false })),
+    created:Date.now(), updated:Date.now() };
+}
+function loadImage(src){ return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; }); }
+async function shrink(src, max, q=0.82){
+  const img = await loadImage(src);
+  const s = Math.min(1, max / Math.max(img.width, img.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.width*s); c.height = Math.round(img.height*s);
+  const x = c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,c.width,c.height);
+  x.drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", q);
+}
+
+/* ---------- 글이 넘치면 글씨 크기를 줄여 쪽 안에 맞추기 ---------- */
+function fitText(root){
+  if (!root) return;
+  root.querySelectorAll(".pg .t").forEach(t => {
+    t.style.fontSize = "";
+    let size = parseFloat(getComputedStyle(t).fontSize);
+    const min = size * 0.45;
+    while (t.scrollHeight > t.clientHeight + 1 && size > min){
+      size *= 0.93; t.style.fontSize = size + "px";
+    }
+  });
+}
+function guideHTML(p){
+  const [max, sent] = LIMITS[p.layout] || LIMITS.side;
+  const n = p.text.replace(/\n/g, "").length;
+  return n > max
+    ? `<p class="guide warn" id="guide">글이 많아서 글씨가 작아져요. 다음 쪽으로 나눠 써 보세요. (${n} / ${max}자)</p>`
+    : `<p class="guide" id="guide">이 모양은 ${sent}문장(${max}자) 정도까지 들어가요. 지금 ${n}자</p>`;
+}
+window.addEventListener("resize", () => { fitText($("#prev")); fitText($("#stage")); });
+if (document.fonts) document.fonts.ready.then(() => { fitText($("#prev")); fitText($("#stage")); });
+
+/* ---------- 쪽 그리기 (보기·미리보기 공통) ---------- */
+function pageHTML(p, img, num, preview){
+  let lay = p.layout;
+  if (!img && lay !== "text" && !preview) lay = "text";
+  const im = lay === "text" ? "" :
+    `<div class="im">${img ? `<img src="${img}" alt="">` : `<div class="ph">그림을 넣어 주세요</div>`}</div>`;
+  const tx = `<div class="t">${esc(p.text) || (preview ? '<span style="color:var(--ink-soft)">여기에 글이 들어가요</span>' : "")}</div>`;
+  return `<div class="pg ${lay}">${im}${tx}${num ? `<span class="no">${num}</span>` : ""}</div>`;
+}
+function coverHTML(b, id, img){
+  return `<div class="pg cv" style="--c:${colorOf(id)}">
+    ${img ? `<div class="im"><img src="${img}" alt=""></div>` : ""}
+    <div class="ttl"><b>${esc(b.title || "제목 없는 책")}</b><span>지은이 ${esc(b.author)}</span></div></div>`;
+}
+function coverImg(){
+  if (S.imgs.cover) return S.imgs.cover;
+  const p = S.book.pages.find(p => S.imgs[p.pid]);
+  return p ? S.imgs[p.pid] : null;
+}
+
+/* ============================================================
+   서가
+   ============================================================ */
+async function showShelf(){
+  S.view = "shelf"; S.id = null; S.book = null; S.imgs = {};
+  $("#app").innerHTML = `<div class="wrap"><p class="empty">책장을 불러오고 있어요…</p></div>`;
+  try { S.shelf = await api("GET", "shelf") || {}; await loadRoster(); }
+  catch(e){ S.shelf = {}; toast("책장을 불러오지 못했어요. 인터넷 연결을 확인하세요."); }
+  const ex = Object.entries(S.shelf).find(([,b]) => isExample(b));
+  const list = Object.entries(S.shelf).filter(([,b]) => !isExample(b)).sort((a,b) =>
+    (a[1].num ? +a[1].num : 999) - (b[1].num ? +b[1].num : 999) || (b[1].updated||0) - (a[1].updated||0));
+  const nums = rosterNums();
+  const made = nums.filter(n => bookByNum(n)).length;
+  const checkHTML = !S.teacher ? "" : `
+    <section class="check">
+      <div class="top">
+        <h3>제출 확인 <span style="font-size:16px;color:var(--ink-soft)">책 만든 사람 ${made} / ${nums.length}</span></h3>
+        <div class="row"><button class="btn sun small" id="allPdf">전체 PDF 받기</button>
+        <button class="btn ghost small" id="exBook">${ex ? "예시 책 고치기" : "예시 책 만들기"}</button>
+        <button class="btn ghost small" id="setNums">번호 설정</button></div>
       </div>
-    `).join('');
-  });
-}
-
-/* ---------------- 선생님: 로그인 ---------------- */
-function renderTeacherLogin(){
-  app.innerHTML = `
-    <div class="card">
-      <h2>🔒 선생님 로그인</h2>
-      <label>비밀번호</label>
-      <input type="password" id="pwInput">
-      <button class="btn" id="loginBtn">로그인</button>
+      <div class="legend" style="margin-bottom:10px">
+        <span><i style="border:2px dashed var(--line)"></i>아직 없음</span>
+        <span><i style="background:var(--sun)"></i>책만 만듦</span>
+        <span><i style="background:var(--leaf)"></i>글 쓰는 중</span>
+      </div>
+      <div class="nums">${nums.map(n => {
+        const f = bookByNum(n); if (!f) return `<div class="nb"><b>${n}</b><span>없음</span></div>`;
+        const [id,b] = f, w = b.written || 0;
+        return `<button class="nb ${w ? "done" : "start"}" data-id="${id}"><b>${n}</b><span>${esc(b.author)}</span><span>글 ${w} / ${b.pages||0}쪽</span></button>`;
+      }).join("")}</div>
+    </section>`;
+  $("#app").innerHTML = `
+  <div class="wrap">
+    ${DEMO ? `<div class="demo">연습 모드예요. 이 기기에서만 저장돼요. 수업 전에 파일 위쪽 firebaseConfig를 채워 주세요.</div>` : ""}
+    <div class="hero">
+      <div><h1>우리 반 그림책 도서관</h1><p>책을 누르면 읽을 수 있어요.</p></div>
+      <button class="btn sun" id="goWrite">내 책 쓰러 가기</button>
     </div>
-  `;
-  document.getElementById('loginBtn').onclick = () => {
-    if(document.getElementById('pwInput').value === TEACHER_PASSWORD){
-      state.teacherOk = true; state.view='teacherHome'; render();
-    } else showMsg('비밀번호가 틀렸어요.');
+    ${checkHTML}
+    ${ex ? `<section class="example">
+      <div class="cover" style="--c:${colorOf(ex[0])}">
+        ${ex[1].thumb ? `<img src="${ex[1].thumb}" alt="">` : ""}
+        <div class="ct">${esc(ex[1].title || "예시 책")}<small>${esc(ex[1].author)}</small></div>
+      </div>
+      <div>
+        <h3>선생님 예시 책</h3>
+        <p>넘겨 보면서 어떻게 만드는지 살펴봐요.</p>
+        <button class="btn" id="exRead">예시 책 넘겨 보기</button>
+      </div>
+    </section>` : ""}
+    ${list.length ? `<div class="shelf">${list.map(([id,b]) => `
+      <button class="bk" data-id="${id}" aria-label="${esc(b.title)} 읽기">
+        <div class="cover" style="--c:${colorOf(id)}">
+          ${b.thumb ? `<img src="${b.thumb}" alt="">` : ""}
+          ${b.num ? `<span class="num">${b.num}번</span>` : ""}
+          <div class="ct">${esc(b.title || "제목 없는 책")}<small>${esc(b.author)}</small></div>
+        </div>
+      </button>`).join("")}</div>`
+    : `<div class="shelf" style="display:block;padding:30px"><p class="empty" style="margin:0">아직 꽂힌 책이 없어요. 첫 번째 책을 써 보세요.</p></div>`}
+    <div class="foot">
+      <span>${list.length}권</span>
+      <button id="teach" class="btn ghost small">${S.teacher ? "선생님 모드 끄기" : "선생님"}</button>
+    </div>
+  </div>`;
+  $("#goWrite").onclick = openLogin;
+  $("#teach").onclick = async () => {
+    if (S.teacher){ S.teacher=false; showShelf(); return; }
+    const p = await ask({ title:"선생님 모드", input:{ type:"password", mode:"numeric" }, ok:"켜기" });
+    if (p === false) return;
+    if (p.trim() === CONFIG.TEACHER_PIN){ S.teacher = true; toast("선생님 모드가 켜졌어요"); showShelf(); }
+    else toast("비밀번호가 달라요");
   };
-}
-
-/* ---------------- 선생님: 홈(주제 추가/목록) ---------------- */
-function renderTeacherHome(){
-  app.innerHTML = `
-    <div class="card">
-      <h2>📌 주제 추가</h2>
-      <label>날짜 (이 날에 학생 화면에 떠요)</label>
-      <input type="date" id="newTopicDateInput" value="${todayStr()}">
-      <label>주제</label>
-      <input type="text" id="newTopicInput" placeholder="예: 내가 화가 났을 때 어떻게 했나요?">
-      <label>글쓰기 설명 (선택, 학생 글쓰기 화면 위쪽에 보여요)</label>
-      <textarea id="newTopicDescInput" placeholder="예: 화가 났던 상황을 구체적으로 쓰고, 그때 어떻게 했는지, 다음엔 어떻게 하고 싶은지 써보세요." style="min-height:80px;"></textarea>
-      <button class="btn" id="addTopicBtn">추가하기</button>
-    </div>
-    <div class="card">
-      <h2>주제 목록</h2>
-      <div id="teacherTopicBox" class="loading">불러오는 중...</div>
-    </div>
-    <div class="card">
-      <h2>👥 학급 설정</h2>
-      <div class="notice">제출 체크표(1~25번 등)에 쓰이는 번호 범위예요. 학년이 바뀌어 학생 수나 번호가 달라지면 여기서 바꿔주세요.</div>
-      <label>총 학생 수 (번호 1번부터 이 숫자까지)</label>
-      <input type="text" id="rosterMaxInput" inputmode="numeric" placeholder="예: 25">
-      <label>제외할 번호 (쉼표로 구분, 없으면 비워두기)</label>
-      <input type="text" id="rosterExcludedInput" placeholder="예: 23, 17">
-      <button class="btn secondary" id="saveRosterBtn">학급 설정 저장</button>
-      <div id="rosterSaveStatus" style="margin-top:8px;font-size:13px;color:var(--good);"></div>
-    </div>
-    <div class="card">
-      <h2>📤 학생 글 모음 내보내기</h2>
-      <div class="notice">지금까지 학생들이 쓴 모든 글(주제·날짜·선생님 첨삭 여부 포함)을 번호순으로 정리해서 텍스트 파일로 내려받아요. 백업용으로도, 학기말 정리용으로도 쓰실 수 있어요.</div>
-      <button class="btn secondary" id="exportBtn">전체 글 내보내기 (.txt)</button>
-      <div id="exportStatus" style="margin-top:8px;font-size:13px;color:var(--muted);"></div>
-    </div>
-  `;
-  document.getElementById('addTopicBtn').onclick = () => {
-    const title = document.getElementById('newTopicInput').value.trim();
-    const description = document.getElementById('newTopicDescInput').value.trim();
-    const scheduledDate = document.getElementById('newTopicDateInput').value || todayStr();
-    if(!title) return;
-    db.ref(`${DB_ROOT}/topics`).push({title, description, scheduledDate, open: true, createdAt: Date.now()}).then(()=>{
-      document.getElementById('newTopicInput').value='';
-      document.getElementById('newTopicDescInput').value='';
-      document.getElementById('newTopicDateInput').value = todayStr();
-      loadTeacherTopics();
-    });
-  };
-  db.ref(`${DB_ROOT}/settings/roster`).once('value').then(snap => {
-    const settings = snap.val() || { max: 25, excluded: [23] };
-    document.getElementById('rosterMaxInput').value = settings.max || 25;
-    document.getElementById('rosterExcludedInput').value = (settings.excluded || []).join(', ');
-  });
-  document.getElementById('saveRosterBtn').onclick = () => {
-    const max = parseInt(document.getElementById('rosterMaxInput').value, 10) || 25;
-    const excludedRaw = document.getElementById('rosterExcludedInput').value.trim();
-    const excluded = excludedRaw
-      ? excludedRaw.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n))
-      : [];
-    db.ref(`${DB_ROOT}/settings/roster`).set({ max, excluded }).then(()=>{
-      document.getElementById('rosterSaveStatus').textContent = '저장했어요! 다음에 여는 주제 체크표부터 적용돼요.';
-    });
-  };
-  document.getElementById('exportBtn').onclick = async () => {
-    const btn = document.getElementById('exportBtn');
-    const status = document.getElementById('exportStatus');
-    btn.disabled = true;
-    status.textContent = '글을 모으는 중이에요...';
+  document.querySelectorAll(".bk, .nb[data-id]").forEach(b => b.onclick = () => openReader(b.dataset.id));
+  if ($("#exRead")) $("#exRead").onclick = () => openReader(ex[0]);
+  if ($("#exBook")) $("#exBook").onclick = async () => {
     try {
-      const [topicSnap, subSnap] = await Promise.all([
-        db.ref(`${DB_ROOT}/topics`).once('value'),
-        db.ref(`${DB_ROOT}/submissions`).once('value')
-      ]);
-      const topics = topicSnap.val() || {};
-      const subsAll = subSnap.val() || {};
-
-      const byStudent = {}; // "번호_이름" -> [{topicTitle, date, text, done, sent}]
-      Object.keys(subsAll).forEach(topicId => {
-        const topic = topics[topicId] || { title: '(삭제된 주제)' };
-        Object.values(subsAll[topicId]).forEach(s => {
-          const key = `${String(s.number).padStart(3,'0')}_${s.name}`;
-          if(!byStudent[key]) byStudent[key] = { number: s.number, name: s.name, items: [] };
-          byStudent[key].items.push({
-            topicTitle: topic.title,
-            date: dateStr(s.createdAt),
-            text: s.text,
-            done: !!s.teacherDone,
-            sent: !!s.teacherSent
-          });
-        });
-      });
-
-      const studentKeys = Object.keys(byStudent).sort();
-      if(!studentKeys.length){ status.textContent = '내보낼 글이 아직 없어요.'; btn.disabled = false; return; }
-
-      let out = `우리반 글쓰기 모음 (내보낸 날짜: ${todayStr()})\n`;
-      out += `${'='.repeat(50)}\n\n`;
-      studentKeys.forEach(key => {
-        const st = byStudent[key];
-        out += `■ ${st.number}번 ${st.name}\n${'-'.repeat(40)}\n`;
-        st.items
-          .sort((a,b)=> a.date.localeCompare(b.date))
-          .forEach(it => {
-            out += `[${it.date}] ${it.topicTitle}\n${it.text}\n\n`;
-          });
-        out += `\n`;
-      });
-
-      const blob = new Blob([out], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `우리반_글쓰기_모음_${todayStr()}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      status.textContent = `${studentKeys.length}명의 글을 내려받았어요.`;
-    } catch(e){
-      console.error(e);
-      status.textContent = '내보내는 중 문제가 생겼어요. 다시 시도해주세요.';
-    } finally {
-      btn.disabled = false;
-    }
+      if (ex){ const book = await api("GET", `books/${ex[0]}`); if (book){ openEditor(ex[0], book); return; } }
+      const id = uid(), book = newBook("선생님", CONFIG.TEACHER_PIN, 0);
+      book.title = "선생님 예시 책";
+      await api("PUT", `books/${id}`, book);
+      await api("PUT", `shelf/${id}`, { title:book.title, author:book.author, num:0, pages:book.pages.length, written:0, updated:Date.now() });
+      openEditor(id, book);
+    } catch(e){ toast("열지 못했어요. 다시 해 보세요"); }
   };
-  loadTeacherTopics();
+  if ($("#allPdf")) $("#allPdf").onclick = async () => {
+    if (!list.length){ toast("아직 책이 없어요"); return; }
+    if (!await ask({ title:"전체 PDF 받기", text:`책 ${list.length}권을 번호순으로 한 파일에 담아요.\n책이 많으면 몇 분 걸릴 수 있어요.`, ok:"받기" })) return;
+    exportPDF(list.map(([id]) => [id]), "우리반_그림책_전체.pdf");
+  };
+  if ($("#setNums")) $("#setNums").onclick = async () => {
+    const max = await ask({ title:"번호 설정", text:"마지막 번호를 적어 주세요.", input:{ mode:"numeric", value:String(ROSTER.max) }, ok:"다음" });
+    if (max === false) return;
+    if (!/^\d+$/.test(max.trim()) || +max < 1 || +max > 60){ toast("1~60 사이 숫자로 적어 주세요"); return; }
+    const skip = await ask({ title:"번호 설정", text:"없는 번호를 쉼표로 적어 주세요.\n없으면 비워 두세요. (예: 23, 24)", input:{ value:ROSTER.skip.join(", ") }, ok:"저장" });
+    if (skip === false) return;
+    const list = skip.split(/[,\s]+/).filter(Boolean).map(Number).filter(n => n >= 1);
+    try { await api("PUT","books/_settings", { max:+max, skip:list }); toast("번호를 저장했어요"); showShelf(); }
+    catch(e){ toast("저장하지 못했어요. 다시 해 보세요"); }
+  };
 }
 
-function loadTeacherTopics(){
-  db.ref(`${DB_ROOT}/topics`).once('value').then(snap => {
-    const topics = snap.val() || {};
-    const ids = Object.keys(topics).sort((a,b)=> topicDateStr(topics[a]).localeCompare(topicDateStr(topics[b])) || (topics[a].createdAt||0)-(topics[b].createdAt||0));
-    const box = document.getElementById('teacherTopicBox');
-    if(!box) return;
-    if(!ids.length){ box.innerHTML = `<div class="empty">주제를 추가해주세요.</div>`; return; }
-    const today = todayStr();
-    box.innerHTML = ids.map(id => {
-      const d = topicDateStr(topics[id]);
-      const dateBadge = d === today ? `<span class="badge ok">오늘 ${esc(d)}</span>` : `<span class="badge wait">${esc(d)}</span>`;
-      const isOpen = topics[id].open !== false;
-      const openBadge = isOpen ? '' : '<span class="badge wait" style="background:#eee;color:#888;">닫힘</span>';
-      return `
-      <div class="topic-item" data-id="${id}">
-        <div class="title">${esc(topics[id].title)} ${dateBadge} ${openBadge}</div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <button type="button" class="btn small secondary" data-toggle="${id}">${isOpen ? '닫기' : '다시 열기'}</button>
-          <span class="count">제출글 보기 ›</span>
-          <button type="button" class="del-x" data-del="${id}" title="주제 삭제">×</button>
+/* ---------- 로그인 ---------- */
+async function openLogin(){
+  const d = $("#login"); $("#lgName").value=""; $("#lgPin").value=""; $("#lgErr").textContent="";
+  try { S.shelf = await api("GET","shelf") || {}; await loadRoster(); } catch(e){}
+  $("#lgNum").innerHTML = `<option value="">번호를 골라요</option>` + rosterNums().map(n => {
+    const f = bookByNum(n); return `<option value="${n}">${n}번${f ? " · " + esc(f[1].author) : ""}</option>`;
+  }).join("");
+  lgNumChanged(); openDlg(d);
+}
+function lgNumChanged(){
+  const n = $("#lgNum").value, f = n && bookByNum(n), who = $("#lgWho");
+  $("#lgNameF").style.display = f ? "none" : "";
+  who.style.display = f ? "" : "none";
+  if (f) who.textContent = `${n}번 ${f[1].author}의 책이에요. 비밀번호를 적어 주세요.`;
+  $("#lgErr").textContent = "";
+}
+$("#lgNum").onchange = lgNumChanged;
+$("#lgCancel").onclick = () => closeDlg($("#login"));
+$("#lgGo").onclick = async () => {
+  const num = +$("#lgNum").value, name = $("#lgName").value.trim(), pin = $("#lgPin").value.trim(), err = $("#lgErr");
+  if (!num){ err.textContent = "번호를 골라 주세요."; return; }
+  if (!/^\d{4}$/.test(pin)){ err.textContent = "비밀번호는 숫자 4자리로 적어 주세요."; return; }
+  err.textContent = "확인하고 있어요…";
+  try {
+    S.shelf = await api("GET","shelf") || {};
+    const found = bookByNum(num);
+    if (!found && !name){ err.textContent = "이름을 적어 주세요."; return; }
+    if (found){
+      const book = await api("GET", `books/${found[0]}`);
+      if (!book){ err.textContent = "책을 찾지 못했어요. 선생님께 말해 주세요."; return; }
+      if (book.pin !== pin && pin !== CONFIG.TEACHER_PIN){ err.textContent = "비밀번호가 달라요. 기억나지 않으면 선생님께 말해 주세요."; return; }
+      closeDlg($("#login")); openEditor(found[0], book);
+    } else {
+      err.textContent = "";
+      closeDlg($("#login"));
+      const yes = await ask({ title:"새 책 만들기", text:`${num}번 ${name}\n새 책을 만들까요? 비밀번호 ${pin}을 꼭 기억해 두세요.`, ok:"새 책 만들기" });
+      if (!yes){ openDlg($("#login")); return; }
+      const id = uid(), book = newBook(name, pin, num);
+      await api("PUT", `books/${id}`, book);
+      await api("PUT", `shelf/${id}`, { title:book.title, author:name, num, pages:book.pages.length, written:0, updated:Date.now() });
+      openEditor(id, book);
+    }
+  } catch(e){
+    if (!$("#login").open) openDlg($("#login"));
+    err.textContent = "연결이 안 돼요. 인터넷을 확인하고 다시 눌러 주세요.";
+  }
+};
+$("#lgPin").addEventListener("keydown", e => { if (e.key === "Enter") $("#lgGo").click(); });
+
+/* ============================================================
+   책 쓰기
+   ============================================================ */
+let saveTimer = null, pending = false;
+function setStatus(s){
+  const el = $("#status"); if (!el) return;
+  el.className = "status" + (s==="error" ? " err" : "");
+  el.textContent = { saving:"저장 중…", saved:"저장됨", error:"저장 안 됨 — 인터넷을 확인하세요" }[s];
+}
+function queueSave(){ pending = true; setStatus("saving"); clearTimeout(saveTimer); saveTimer = setTimeout(flushSave, 700); }
+async function flushSave(){
+  clearTimeout(saveTimer); if (!pending || !S.book) return;
+  pending = false; const b = S.book, now = Date.now();
+  try {
+    await api("PATCH", `books/${S.id}`, { title:b.title, pages:b.pages, updated:now });
+    await api("PATCH", `shelf/${S.id}`, { title:b.title, author:b.author, pages:b.pages.length, written:b.pages.filter(p => p.text.trim()).length, updated:now });
+    setStatus("saved");
+  } catch(e){ pending = true; setStatus("error"); }
+}
+async function refreshThumb(){
+  const src = coverImg();
+  try { await api("PATCH", `shelf/${S.id}`, { thumb: src ? await shrink(src, 260, 0.75) : null }); } catch(e){}
+}
+
+async function openEditor(id, book){
+  S.view="edit"; S.id=id; S.book=normalize(book); S.tab="pages"; S.page=0;
+  $("#app").innerHTML = `<div class="wrap"><p class="empty">책을 펼치고 있어요…</p></div>`;
+  try { S.imgs = await api("GET", `imgs/${id}`) || {}; } catch(e){ S.imgs = {}; }
+  renderEditor();
+}
+function renderEditor(){
+  const b = S.book;
+  $("#app").innerHTML = `
+  <div class="bar"><div class="in">
+    <button class="btn ghost small" id="back">← 책장</button>
+    <h2>${esc(b.title || "제목 없는 책")}</h2>
+    <span class="status" id="status">저장됨</span>
+    <button class="btn sun small" id="read">책으로 보기</button>
+  </div></div>
+  <div style="height:14px"></div>
+  <div class="tabs" role="tablist">
+    ${[["pages","쪽 쓰기"],["cover","표지"]].map(([k,l]) =>
+      `<button class="tab" role="tab" data-tab="${k}" aria-selected="${S.tab===k}">${l}</button>`).join("")}
+  </div>
+  <div class="panel" id="panel"></div><div style="height:40px"></div>`;
+  $("#back").onclick = async () => { await flushSave(); showShelf(); };
+  $("#read").onclick = async () => { await flushSave(); openReader(S.id); };
+  document.querySelectorAll(".tab").forEach(t => t.onclick = () => { S.tab = t.dataset.tab; renderEditor(); });
+  ({ pages:renderPages, cover:renderCover })[S.tab]();
+}
+
+function renderPages(){
+  const b = S.book; S.page = Math.min(S.page, b.pages.length-1);
+  const p = b.pages[S.page], img = S.imgs[p.pid];
+  $("#panel").innerHTML = `
+    <div class="chips">
+      ${b.pages.map((q,i) => `<button class="chip ${i===S.page?"on":""} ${q.text.trim()?"done":""}" data-p="${i}" aria-label="${i+1}쪽">${i+1}</button>`).join("")}
+      <button class="chip add" id="addPg" aria-label="쪽 추가">+</button>
+    </div>
+    <div class="edit">
+      <div>
+        <label class="field"><span>${S.page+1}쪽 글</span>
+          <textarea id="pgText" rows="7" placeholder="이 쪽에 들어갈 이야기를 써요.">${esc(p.text)}</textarea></label>
+        <div id="guideBox" style="margin:-8px 0 14px">${guideHTML(p)}</div>
+        <div class="field"><span>쪽 모양</span>
+          <div class="seg">${LAYOUTS.map(([k,l]) => `<button data-lay="${k}" aria-pressed="${p.layout===k}">${l}</button>`).join("")}</div></div>
+
+      </div>
+      <div>
+        <div class="field"><span>미리보기</span><div class="mini" id="prev">${pageHTML(p, img, S.page+1, true)}</div></div>
+        <div class="row" style="margin-bottom:18px">
+          ${p.layout==="text" ? "" : `
+          <button class="btn sun" id="pickImg">${img ? "그림 바꾸기" : "그림 넣기"}</button>
+          <input class="pick" type="file" id="pgFile" accept="image/*" tabindex="-1">
+          ${img ? `<button class="btn ghost small" id="rmImg">그림 빼기</button>` : ""}`}
+        </div>
+        <div class="row" style="justify-content:flex-end">
+          <button class="btn danger small" id="delPg">이 쪽 지우기</button>
         </div>
       </div>
-    `;
-    }).join('');
-    box.querySelectorAll('.topic-item').forEach(el => {
-      el.onclick = (e) => {
-        if(e.target.closest('.del-x') || e.target.closest('[data-toggle]')) return;
-        state.topicId = el.dataset.id; state.view='teacherTopic'; render();
-      };
-    });
-    box.querySelectorAll('[data-toggle]').forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        const topicId = btn.dataset.toggle;
-        const nowOpen = topics[topicId].open === false;
-        db.ref(`${DB_ROOT}/topics/${topicId}`).update({open: nowOpen}).then(()=>{
-          showMsg(nowOpen ? '학생들에게 다시 보여요.' : '학생들에게 안 보이게 닫았어요.');
-          loadTeacherTopics();
-        });
-      };
-    });
-    box.querySelectorAll('.del-x').forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        if(btn.dataset.confirming === '1'){
-          const topicId = btn.dataset.del;
-          Promise.all([
-            db.ref(`${DB_ROOT}/topics/${topicId}`).remove(),
-            db.ref(`${DB_ROOT}/submissions/${topicId}`).remove()
-          ]).then(()=>{ showMsg('주제를 삭제했어요.'); loadTeacherTopics(); });
-        } else {
-          document.querySelectorAll('.del-x.confirming').forEach(b => { b.classList.remove('confirming'); b.textContent='×'; b.dataset.confirming='0'; });
-          btn.dataset.confirming = '1';
-          btn.classList.add('confirming');
-          btn.textContent = '삭제?';
-          setTimeout(()=>{ if(btn.dataset.confirming==='1'){ btn.textContent='×'; btn.classList.remove('confirming'); btn.dataset.confirming='0'; } }, 3000);
-        }
-      };
-    });
-  }).catch(err => {
-    console.error(err);
-    const box = document.getElementById('teacherTopicBox');
-    if(box) box.innerHTML = `<div class="empty">주제를 불러오지 못했어요. 파이어베이스 설정과 데이터베이스 규칙을 확인해주세요.</div>`;
-  });
-}
-
-/* ---------------- 선생님: 주제별 제출 글 + 추천 승인 + 첨삭 진입 ---------------- */
-function renderTeacherTopic(){
-  Promise.all([
-    db.ref(`${DB_ROOT}/topics/${state.topicId}`).once('value'),
-    db.ref(`${DB_ROOT}/settings/roster`).once('value')
-  ]).then(([topicSnap, rosterSnap]) => {
-    const topic = topicSnap.val();
-    const rosterSettings = rosterSnap.val() || { max: 25, excluded: [23] };
-    app.innerHTML = `
-      <button class="back" id="backBtn">‹ 주제 목록으로</button>
-      <div class="card">
-        <h2>${esc(topic.title)}</h2>
-        <div id="rosterBox" class="loading">불러오는 중...</div>
-      </div>
-      <div class="card">
-        <div id="subsBox" class="loading">불러오는 중...</div>
-      </div>
-    `;
-    document.getElementById('backBtn').onclick = () => { state.view='teacherHome'; render(); };
-
-    db.ref(`${DB_ROOT}/submissions/${state.topicId}`).once('value').then(subSnap => {
-      const subs = subSnap.val() || {};
-
-      const statusByNumber = {};
-      Object.values(subs).forEach(s => {
-        const num = String(s.number).trim();
-        if(s.teacherDone) statusByNumber[num] = 'done';
-        else if(statusByNumber[num] !== 'done') statusByNumber[num] = 'submitted';
-      });
-      const absent = topic.absent || {};
-      const excludedSet = new Set(rosterSettings.excluded || []);
-      const rosterNumbers = [];
-      for(let i=1;i<=(rosterSettings.max||25);i++){ if(!excludedSet.has(i)) rosterNumbers.push(i); }
-      document.getElementById('rosterBox').innerHTML = `
-        <div class="roster-grid">
-          ${rosterNumbers.map(n => {
-            const isAbsent = !!absent[n];
-            const st = statusByNumber[String(n)];
-            const cls = isAbsent ? 'roster-absent' : st === 'done' ? 'roster-done' : st === 'submitted' ? 'roster-submitted' : 'roster-empty';
-            const mark = isAbsent ? '' : st === 'done' ? '○' : st === 'submitted' ? '△' : '';
-            return `<div class="roster-cell ${cls}" data-num="${n}" title="눌러서 결석 표시/해제"><div class="roster-num">${n}</div><div class="roster-mark">${mark}</div></div>`;
-          }).join('')}
-        </div>
-      `;
-      document.getElementById('rosterBox').querySelectorAll('.roster-cell').forEach(cell => {
-        cell.onclick = () => {
-          const n = cell.dataset.num;
-          const nowAbsent = !absent[n];
-          db.ref(`${DB_ROOT}/topics/${state.topicId}/absent/${n}`).set(nowAbsent ? true : null).then(()=> renderTeacherTopic());
-        };
-      });
-
-      const ids = Object.keys(subs).sort((a,b)=> (subs[b].updatedAt||subs[b].createdAt) - (subs[a].updatedAt||subs[a].createdAt));
-      const box = document.getElementById('subsBox');
-      if(!ids.length){ box.innerHTML = `<div class="empty">아직 제출한 학생이 없어요.</div>`; return; }
-      box.innerHTML = ids.map(id => {
-        const s = subs[id];
-        let badge = '';
-        if(s.optOut) badge = `<span class="badge wait">추천 금지</span>`;
-        else if(s.teacherApproved) badge = `<span class="badge ok">추천 승인됨</span>`;
-        const sentBadge = s.teacherSent ? `<span class="badge sent">첨삭 전송됨</span>` : '';
-        const doneBadge = s.teacherDone ? `<span class="badge ok">완료!</span>` : '';
-        return `
-          <div class="sub-item">
-            <div class="meta">${esc(s.number)}번 ${esc(s.name)} ${badge} ${sentBadge} ${doneBadge}</div>
-            <div class="text">${esc(s.text)}</div>
-            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <button class="btn small" data-markup="${id}">${s.teacherSent ? '다시 첨삭하기' : '첨삭하기'}</button>
-              <button class="btn small secondary" data-done="${id}">${s.teacherDone ? '완료 취소' : '✅ 완료로 표시'}</button>
-              ${!s.optOut ? (!s.teacherApproved
-                  ? `<button class="btn small secondary" data-approve="${id}">추천 승인하기</button>`
-                  : `<button class="btn small secondary" data-unapprove="${id}">승인 취소</button>`) : ''}
-              <button type="button" class="del-x" data-delsub="${id}" title="이 글 삭제" style="margin-left:auto;">×</button>
-            </div>
-          </div>
-        `;
-      }).join('');
-      box.querySelectorAll('[data-approve]').forEach(b => {
-        b.onclick = () => db.ref(`${DB_ROOT}/submissions/${state.topicId}/${b.dataset.approve}`).update({teacherApproved:true}).then(()=>renderTeacherTopic());
-      });
-      box.querySelectorAll('[data-unapprove]').forEach(b => {
-        b.onclick = () => db.ref(`${DB_ROOT}/submissions/${state.topicId}/${b.dataset.unapprove}`).update({teacherApproved:false}).then(()=>renderTeacherTopic());
-      });
-      box.querySelectorAll('[data-done]').forEach(b => {
-        b.onclick = () => {
-          const subId = b.dataset.done;
-          const isDone = subs[subId].teacherDone;
-          db.ref(`${DB_ROOT}/submissions/${state.topicId}/${subId}`).update({teacherDone: !isDone}).then(()=>{
-            showMsg(isDone ? '완료 표시를 취소했어요.' : '학생에게 완료를 알렸어요.');
-            renderTeacherTopic();
-          });
-        };
-      });
-      box.querySelectorAll('[data-markup]').forEach(b => {
-        b.onclick = () => { state.currentSubId = b.dataset.markup; state.view='teacherMarkup'; render(); };
-      });
-      box.querySelectorAll('[data-delsub]').forEach(btn => {
-        btn.onclick = () => {
-          if(btn.dataset.confirming === '1'){
-            db.ref(`${DB_ROOT}/submissions/${state.topicId}/${btn.dataset.delsub}`).remove().then(()=>{ showMsg('글을 삭제했어요.'); renderTeacherTopic(); });
-          } else {
-            document.querySelectorAll('.del-x.confirming').forEach(b => { b.classList.remove('confirming'); b.textContent='×'; b.dataset.confirming='0'; });
-            btn.dataset.confirming = '1';
-            btn.classList.add('confirming');
-            btn.textContent = '삭제?';
-            setTimeout(()=>{ if(btn.dataset.confirming==='1'){ btn.textContent='×'; btn.classList.remove('confirming'); btn.dataset.confirming='0'; } }, 3000);
-          }
-        };
-      });
-    });
-  });
-}
-
-/* ---------------- 자동 비교(diff) 엔진 ---------------- */
-function tokenize(text){
-  return text.match(/[ \t]+|[^ \t]+/g) || [];
-}
-function isWhitespaceToken(t){ return /^[ \t]+$/.test(t); }
-
-// 공통 부분수열(LCS) 기반 정렬: equal/insert만 반환 (단어 단위 비교용)
-function diffTokens(origTokens, newTokens){
-  const n = origTokens.length, m = newTokens.length;
-  const dp = Array.from({length:n+1}, () => new Array(m+1).fill(0));
-  for(let i=n-1;i>=0;i--){
-    for(let j=m-1;j>=0;j--){
-      dp[i][j] = origTokens[i]===newTokens[j] ? dp[i+1][j+1]+1 : Math.max(dp[i+1][j], dp[i][j+1]);
-    }
+    </div>`;
+  const prev = () => { $("#prev").innerHTML = pageHTML(p, S.imgs[p.pid], S.page+1, true); fitText($("#prev")); };
+  fitText($("#prev"));
+  document.querySelectorAll(".chip[data-p]").forEach(c => c.onclick = () => { S.page = +c.dataset.p; renderPages(); });
+  $("#addPg").onclick = () => { b.pages.push({ pid:uid(), text:"", layout:"side", hasImg:false }); S.page = b.pages.length-1; queueSave(); renderPages(); };
+  $("#pgText").oninput = e => { p.text = e.target.value; queueSave(); prev(); $("#guideBox").innerHTML = guideHTML(p); };
+  document.querySelectorAll("[data-lay]").forEach(x => x.onclick = () => { p.layout = x.dataset.lay; queueSave(); renderPages(); });
+  if ($("#pickImg")){
+    const pick = () => { $("#pgFile").value = ""; $("#pgFile").click(); };
+    $("#pickImg").onclick = pick;
+    $("#prev").onclick = e => { if (e.target.closest(".ph")) pick(); };
   }
-  let i=0, j=0; const result = [];
-  while(j<m){
-    if(i<n && origTokens[i]===newTokens[j] && dp[i][j]===dp[i+1][j+1]+1){
-      result.push({type:'equal', token:newTokens[j]}); i++; j++;
-    } else if(i<n && dp[i+1][j] >= dp[i][j+1]){
-      i++;
-    } else {
-      result.push({type:'insert', token:newTokens[j]}); j++;
-    }
-  }
-  return result;
+  if ($("#pgFile")) $("#pgFile").onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    toast("그림을 올리고 있어요…");
+    try {
+      const data = await shrink(URL.createObjectURL(f), 1000, 0.8);
+      await api("PUT", `imgs/${S.id}/${p.pid}`, data);
+      S.imgs[p.pid] = data; p.hasImg = true; queueSave(); refreshThumb(); renderPages(); toast("그림을 넣었어요");
+    } catch(err){ toast("그림을 올리지 못했어요. 다시 해 보세요"); }
+  };
+  if ($("#rmImg")) $("#rmImg").onclick = async () => {
+    if (!await ask({ title:"그림 빼기", text:"이 쪽 그림을 뺄까요?", ok:"빼기", danger:true })) return;
+    try { await api("DELETE", `imgs/${S.id}/${p.pid}`); } catch(e){}
+    delete S.imgs[p.pid]; p.hasImg = false; queueSave(); refreshThumb(); renderPages();
+  };
+  $("#delPg").onclick = async () => {
+    if (b.pages.length <= 1){ toast("책에는 적어도 한 쪽이 있어야 해요"); return; }
+    if (!await ask({ title:`${S.page+1}쪽 지우기`, text:"글과 그림이 함께 사라져요.", ok:"지우기", danger:true })) return;
+    const [x] = b.pages.splice(S.page,1);
+    if (S.imgs[x.pid]){ delete S.imgs[x.pid]; try { await api("DELETE", `imgs/${S.id}/${x.pid}`); } catch(e){} refreshThumb(); }
+    queueSave(); renderPages();
+  };
 }
 
-// 전체 텍스트를 글자 단위로 통째로 비교 (줄바꿈·띄어쓰기·단어 모두 같은 방식으로, 필요한 부분만 정확히 표시)
-function mergeWhitespaceRuns(diff){
-  const merged = [];
-  for(const item of diff){
-    const last = merged[merged.length-1];
-    if(last && isWhitespaceToken(item.token) && isWhitespaceToken(last.token)){
-      last.token += item.token;
-      if(item.type === 'insert') last.type = 'insert';
-    } else {
-      merged.push({type:item.type, token:item.token});
-    }
-  }
-  return merged;
-}
-function cappedWs(ws){ return ws.length > 2 ? ws.slice(0, 2) : ws; }
-
-function diffToHtml(origText, correctedText){
-  const diff = mergeWhitespaceRuns(diffTokens(origText.split(''), correctedText.split('')));
-  let html = '';
-  diff.forEach(({type, token}) => {
-    if(token === '\n'){
-      html += type==='insert' ? '<span style="color:#c0392b;font-weight:700;">↵</span><br>' : '<br>';
-    } else if(isWhitespaceToken(token)){
-      html += type==='insert' ? `<span style="background:#fadbd8;border-radius:3px;">${cappedWs(token)}</span>` : cappedWs(token);
-    } else {
-      html += type==='insert' ? `<span style="color:#c0392b;font-weight:700;">${esc(token)}</span>` : esc(token);
-    }
-  });
-  return html;
-}
-
-/* ---------------- 선생님: 첨삭 에디터 (자동 비교) ---------------- */
-function renderTeacherMarkup(){
-  Promise.all([
-    db.ref(`${DB_ROOT}/topics/${state.topicId}`).once('value'),
-    db.ref(`${DB_ROOT}/submissions/${state.topicId}/${state.currentSubId}`).once('value')
-  ]).then(([topicSnap, subSnap]) => {
-    const topic = topicSnap.val();
-    const sub = subSnap.val();
-    const startText = sub.teacherCorrectedText || sub.text;
-    app.innerHTML = `
-      <button class="back" id="backBtn">‹ 목록으로</button>
-      <div class="card">
-        <h2>${esc(topic.title)} · ${esc(sub.number)}번 ${esc(sub.name)}</h2>
-        <div class="notice">아래 글을 원하는 대로 그냥 고쳐 써주세요 (문단 나누기, 띄어쓰기, 맞춤법 모두 편하게 직접 수정). 원본과 비교해서 달라진 부분은 자동으로 빨갛게 표시돼요 — 따로 선택하거나 색칠할 필요 없어요.</div>
-        <label>원본</label>
-        <div class="orig-ref">${esc(sub.text)}</div>
-        <label>고친 글</label>
-        <textarea id="correctedArea">${esc(startText)}</textarea>
-        <div class="toolbar" style="margin-top:10px;">
-          <button type="button" id="previewBtn">미리보기 (자동 비교)</button>
-          <button type="button" id="resetBtn">원본으로 되돌리기</button>
-        </div>
-        <div class="previewDiff" id="previewDiff"></div>
-        <button class="btn" id="sendBtn">학생에게 보내기</button>
-        <div id="sendStatus" style="margin-top:8px;font-size:13px;color:var(--good);"></div>
+function renderCover(){
+  const b = S.book;
+  $("#panel").innerHTML = `
+    <div class="edit">
+      <div>
+        <label class="field"><span>책 제목</span><input type="text" id="ttl" value="${esc(b.title)}" maxlength="40"></label>
+        <div class="field"><span>표지 그림</span>
+          <p style="margin:0 0 8px;font-size:15px;color:var(--ink-soft)">표지 그림이 없으면 첫 그림이 표지가 돼요.</p>
+          <div class="row">
+            <button class="btn sun small" id="cvPick">${S.imgs.cover ? "표지 바꾸기" : "표지 그림 넣기"}</button>
+            <input class="pick" type="file" id="cvFile" accept="image/*" tabindex="-1">
+            ${S.imgs.cover ? `<button class="btn ghost small" id="cvRm">표지 그림 빼기</button>` : ""}
+          </div></div>
       </div>
-    `;
-    document.getElementById('backBtn').onclick = () => { state.view='teacherTopic'; render(); };
+      <div><div class="field"><span>미리보기</span><div class="mini" id="cvPrev">${coverHTML(b, S.id, coverImg())}</div></div></div>
+    </div>`;
+  $("#ttl").oninput = e => { b.title = e.target.value; queueSave(); $("#cvPrev").innerHTML = coverHTML(b, S.id, coverImg()); document.querySelector(".bar h2").textContent = b.title || "제목 없는 책"; };
+  $("#cvPick").onclick = () => { $("#cvFile").value = ""; $("#cvFile").click(); };
+  $("#cvFile").onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try { const data = await shrink(URL.createObjectURL(f), 1000, 0.8);
+      await api("PUT", `imgs/${S.id}/cover`, data); S.imgs.cover = data; refreshThumb(); renderCover(); toast("표지를 넣었어요"); }
+    catch(err){ toast("그림을 올리지 못했어요. 다시 해 보세요"); }
+  };
+  if ($("#cvRm")) $("#cvRm").onclick = async () => {
+    try { await api("DELETE", `imgs/${S.id}/cover`); } catch(e){}
+    delete S.imgs.cover; refreshThumb(); renderCover();
+  };
+}
 
-    const correctedArea = document.getElementById('correctedArea');
-    autoGrow(correctedArea);
-    correctedArea.addEventListener('input', () => autoGrow(correctedArea));
-    correctedArea.addEventListener('keydown', function(e){
-      if(e.key === 'Tab'){
-        e.preventDefault();
-        const start = this.selectionStart, end = this.selectionEnd;
-        const lineStart = this.value.lastIndexOf('\n', start - 1) + 1;
-        const beforeCursor = this.value.substring(lineStart, start);
-        if(/^[ \t]+$/.test(beforeCursor) && beforeCursor.length >= 2) return;
-        this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
-        this.selectionStart = this.selectionEnd = start + 2;
-        autoGrow(this);
-        updatePreview();
+/* ============================================================
+   PDF 만들기 (선생님 모드) — 쪽마다 그림으로 그려서 담아요
+   ============================================================ */
+const PW = 1200, PH = 900, U = PW / 100;
+const F_BODY = '"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+const F_DISP = '"Jua","Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+const pdfName = b => `${b.num ? b.num + "번_" : ""}${b.author}_${b.title || "그림책"}.pdf`.replace(/[\\/:*?"<>|]/g, "");
+function loadScript(src){ return new Promise((res,rej) => { const t = document.createElement("script"); t.src = src; t.onload = res; t.onerror = rej; document.head.appendChild(t); }); }
+function rr(x, px, py, w, h, r){ x.beginPath(); x.moveTo(px+r,py); x.arcTo(px+w,py,px+w,py+h,r); x.arcTo(px+w,py+h,px,py+h,r); x.arcTo(px,py+h,px,py,r); x.arcTo(px,py,px+w,py,r); x.closePath(); }
+function wrapLines(x, text, maxW){
+  const out = [];
+  for (const para of String(text).split("\n")){
+    let line = "";
+    for (const tok of para.split(/(\s+)/)){
+      if (!tok) continue;
+      if (/^\s+$/.test(tok)){ if (line) line += tok; continue; }
+      if (x.measureText(line + tok).width <= maxW){ line += tok; continue; }
+      if (line.trim()) out.push(line.trimEnd());
+      let w = tok;
+      while (x.measureText(w).width > maxW && w.length > 1){
+        let k = 1; while (k < w.length && x.measureText(w.slice(0,k+1)).width <= maxW) k++;
+        out.push(w.slice(0,k)); w = w.slice(k);
       }
-    });
-
-    function updatePreview(){
-      document.getElementById('previewDiff').innerHTML = diffToHtml(sub.text, correctedArea.value);
+      line = w;
     }
-    updatePreview();
-    correctedArea.addEventListener('input', updatePreview);
-    document.getElementById('previewBtn').onclick = updatePreview;
-
-    document.getElementById('resetBtn').onclick = () => {
-      const btn = document.getElementById('resetBtn');
-      if(btn.dataset.confirming === '1'){
-        correctedArea.value = sub.text;
-        updatePreview();
-        btn.textContent = '원본으로 되돌리기';
-        btn.dataset.confirming = '0';
-      } else {
-        btn.textContent = '정말요? 한 번 더 누르면 되돌려요';
-        btn.dataset.confirming = '1';
-        setTimeout(()=>{ if(btn.dataset.confirming==='1'){ btn.textContent='원본으로 되돌리기'; btn.dataset.confirming='0'; } }, 3000);
-      }
-    };
-    document.getElementById('sendBtn').onclick = async () => {
-      const correctedText = correctedArea.value;
-      const html = diffToHtml(sub.text, correctedText);
-      await db.ref(`${DB_ROOT}/submissions/${state.topicId}/${state.currentSubId}`).update({
-        teacherMarkup: html, teacherCorrectedText: correctedText, teacherSent: true, teacherSentAt: Date.now()
-      });
-      document.getElementById('sendStatus').textContent = '학생에게 보냈어요!';
-      setTimeout(()=>{ state.view='teacherTopic'; render(); }, 700);
-    };
-  });
+    out.push(line.trimEnd());
+  }
+  return out;
 }
-
-/* ---------------- 라우터 ---------------- */
-function render(){
-  if(state.role==='student'){
-    if(state.view==='topicList') renderTopicList();
-    else if(state.view==='enterInfo') renderEnterInfo();
-    else if(state.view==='write') renderWrite();
-    else if(state.view==='feedback') renderFeedback();
-    else if(state.view==='recommended') renderRecommended();
-    else if(state.view==='myWritings') renderMyWritings();
+function fitLines(x, text, maxW, maxH, base, lh, fam){
+  let size = base, lines;
+  while (true){
+    x.font = `${size}px ${fam}`; lines = wrapLines(x, text, maxW);
+    if (lines.length * size * lh <= maxH || size < base * 0.45) return { size, lines, h: lines.length * size * lh };
+    size *= 0.93;
+  }
+}
+function drawLines(x, f, left, top, w, lh, align){
+  x.textBaseline = "top"; x.textAlign = align;
+  f.lines.forEach((l, i) => x.fillText(l, align === "center" ? left + w/2 : left, top + i*f.size*lh + f.size*(lh-1)/2));
+  x.textAlign = "left";
+}
+function drawImg(x, img, px, py, w, h, cover, r){
+  const s = cover ? Math.max(w/img.width, h/img.height) : Math.min(w/img.width, h/img.height);
+  const iw = img.width*s, ih = img.height*s, ix = px + (w-iw)/2, iy = py + (h-ih)/2;
+  x.save();
+  if (cover){ x.beginPath(); x.rect(px,py,w,h); x.clip(); }
+  else if (r){ rr(x, ix, iy, iw, ih, r); x.clip(); }
+  x.drawImage(img, ix, iy, iw, ih); x.restore();
+}
+async function drawSlide(book, id, imgs, i){
+  const c = document.createElement("canvas"); c.width = PW; c.height = PH;
+  const x = c.getContext("2d"), n = book.pages.length, ink = "#1C2A48", soft = "#56627D";
+  x.fillStyle = "#fff"; x.fillRect(0,0,PW,PH);
+  const img = async src => src ? await loadImage(src) : null;
+  if (i === 0){
+    x.fillStyle = colorOf(id); x.fillRect(0,0,PW,PH);
+    const first = book.pages.find(p => imgs[p.pid]);
+    const im = await img(imgs.cover || (first && imgs[first.pid]));
+    if (im) drawImg(x, im, 6*U, 6*U, PW-12*U, PH-32*U, false, 1.2*U);
+    const t = fitLines(x, book.title || "제목 없는 책", PW-19.2*U, 5.4*U*1.2*2, 5.4*U, 1.2, F_DISP);
+    const boxH = 5.2*U + t.h + 4.2*U, boxY = PH - 6*U - boxH;
+    x.fillStyle = "#fff"; rr(x, 6*U, boxY, PW-12*U, boxH, 1.6*U); x.fill();
+    x.fillStyle = ink; x.font = `${t.size}px ${F_DISP}`; drawLines(x, t, 9.6*U, boxY + 2.6*U, 0, 1.2, "left");
+    x.fillStyle = soft; x.font = `${2.8*U}px ${F_BODY}`; x.textBaseline = "top";
+    x.fillText(`지은이 ${book.author}`, 9.6*U, boxY + 2.6*U + t.h + 0.6*U);
+  } else if (i === n+1){
+    x.fillStyle = ink; x.textAlign = "center"; x.textBaseline = "middle";
+    x.font = `${9*U}px ${F_DISP}`; x.fillText("끝", PW/2, PH/2 - 3*U);
+    x.fillStyle = soft; x.font = `${3*U}px ${F_BODY}`; x.fillText(`${book.title} · 지은이 ${book.author}`, PW/2, PH/2 + 6*U);
+    x.textAlign = "left";
   } else {
-    if(!state.teacherOk) renderTeacherLogin();
-    else if(state.view==='teacherHome') renderTeacherHome();
-    else if(state.view==='teacherTopic') renderTeacherTopic();
-    else if(state.view==='teacherMarkup') renderTeacherMarkup();
-    else renderTeacherHome();
+    const p = book.pages[i-1], im = await img(imgs[p.pid]);
+    const lay = (!im && p.layout !== "text") ? "text" : p.layout, pad = 5*U, gap = 4*U, lh = 1.75;
+    x.fillStyle = ink;
+    if (lay === "side"){
+      const cw = PW - 2*pad - gap, iw = cw*1.15/2.15, tw = cw - iw, h = PH - 2*pad;
+      drawImg(x, im, pad, pad, iw, h, false, 1.2*U);
+      const f = fitLines(x, p.text, tw, h, 3.4*U, lh, F_BODY);
+      x.fillStyle = ink; drawLines(x, f, pad+iw+gap, pad + Math.max(0,(h - f.h)/2), tw, lh, "left");
+    } else if (lay === "top"){
+      const ch = PH - 2*pad - gap, ih = ch*1.5/2.5, th = ch - ih, w = PW - 2*pad;
+      drawImg(x, im, pad, pad, w, ih, false, 1.2*U);
+      const f = fitLines(x, p.text, w, th, 3.4*U, lh, F_BODY);
+      x.fillStyle = ink; drawLines(x, f, pad, pad+ih+gap, w, lh, "center");
+    } else if (lay === "full"){
+      drawImg(x, im, 0, 0, PW, PH, true);
+      if (p.text.trim()){
+        const bw = PW - 8*U, f = fitLines(x, p.text, bw - 6*U, PH*0.4 - 4.8*U, 3.4*U, lh, F_BODY);
+        const bh = f.h + 4.8*U, by = PH - 4*U - bh;
+        x.fillStyle = "rgba(255,255,255,.9)"; rr(x, 4*U, by, bw, bh, 1.6*U); x.fill();
+        x.fillStyle = ink; drawLines(x, f, 7*U, by + 2.4*U, bw - 6*U, lh, "left");
+      }
+    } else {
+      const w = PW - 18*U, h = PH - 14*U, f = fitLines(x, p.text, w, h, 3.8*U, lh, F_BODY);
+      drawLines(x, f, 9*U, 7*U + Math.max(0,(h - f.h)/2), w, lh, "center");
+    }
+    x.fillStyle = soft; x.font = `${2.2*U}px ${F_BODY}`; x.textAlign = "right"; x.textBaseline = "bottom";
+    x.fillText(String(i), PW - 3*U, PH - 2*U); x.textAlign = "left";
   }
+  return c.toDataURL("image/jpeg", 0.85);
 }
-render();
+let pdfBusy = false;
+async function exportPDF(items, filename){
+  if (pdfBusy){ toast("PDF를 만드는 중이에요. 잠시만요"); return; }
+  pdfBusy = true;
+  try {
+    toast("PDF를 준비하고 있어요…");
+    if (!window.jspdf) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    try { await Promise.all([document.fonts.load(`40px ${F_BODY}`), document.fonts.load(`40px ${F_DISP}`)]); } catch(e){}
+    const doc = new window.jspdf.jsPDF({ orientation:"landscape", unit:"px", format:[PW,PH], hotfixes:["px_scaling"] });
+    let first = true;
+    for (let k = 0; k < items.length; k++){
+      let [id, book, imgs] = items[k];
+      if (!book){ book = await api("GET", `books/${id}`); imgs = await api("GET", `imgs/${id}`) || {}; }
+      if (!book) continue;
+      book = normalize(book);
+      if (items.length > 1) toast(`PDF 만드는 중… ${k+1} / ${items.length}권`);
+      for (let i = 0; i < book.pages.length + 2; i++){
+        const data = await drawSlide(book, id, imgs, i);
+        if (!first) doc.addPage([PW,PH], "landscape");
+        doc.addImage(data, "JPEG", 0, 0, PW, PH); first = false;
+      }
+    }
+    doc.save(filename); toast("PDF를 받았어요");
+  } catch(e){ console.error(e); toast("PDF를 만들지 못했어요. 인터넷을 확인하고 다시 해 보세요"); }
+  pdfBusy = false;
+}
+
+/* ============================================================
+   넘기는 그림책 보기
+   ============================================================ */
+async function openReader(id){
+  S.view="read"; S.idx=0;
+  $("#app").innerHTML = `<div class="wrap"><p class="empty">책을 펼치고 있어요…</p></div>`;
+  try {
+    const [book, imgs] = await Promise.all([api("GET",`books/${id}`), api("GET",`imgs/${id}`)]);
+    if (!book){ toast("책을 찾지 못했어요"); showShelf(); return; }
+    S.id=id; S.book=normalize(book); S.imgs=imgs||{}; S.isExample = isExample(book);
+  } catch(e){ toast("책을 불러오지 못했어요. 인터넷을 확인하세요"); showShelf(); return; }
+  const b = S.book;
+  $("#app").innerHTML = `
+  <div class="bar"><div class="in">
+    <button class="btn ghost small" id="back">← 책장</button>
+    <h2>${S.isExample ? "예시 · " : ""}${esc(b.title)}</h2>
+    ${S.teacher ? `<span class="status">${b.num ? b.num + "번 · " : ""}비밀번호 ${esc(b.pin)}</span>
+      <button class="btn ghost small" id="tNum">번호 바꾸기</button>
+      <button class="btn small" id="tEdit">고치기</button>
+      <button class="btn sun small" id="tPdf">PDF 받기</button>
+      <button class="btn danger small" id="tDel">책 지우기</button>` : ""}
+  </div></div>
+  <div class="reader">
+    <div class="stage" id="stage"><div class="sheet" id="under"></div><div class="sheet leaf" id="leaf"></div></div>
+    <div class="nav">
+      <button class="arrow" id="pv" aria-label="앞 쪽">‹</button>
+      <span class="cnt" id="cnt"></span>
+      <button class="arrow" id="nx" aria-label="다음 쪽">›</button>
+    </div>
+    <section class="talk" id="talk" style="display:none">
+      <h3>다 읽었어요! 감상평을 남겨 주세요</h3>
+      <div class="form">
+        <select id="cmNum" aria-label="내 번호"></select>
+        <textarea id="cmText" rows="2" maxlength="100" placeholder="예: 고양이가 말을 하는 장면이 재미있었어!"></textarea>
+      </div>
+      <div class="row" style="justify-content:space-between;margin-top:8px">
+        <span class="cnt2" id="cmCnt">0 / 100자</span>
+        <button class="btn sun small" id="cmGo">남기기</button>
+      </div>
+      <ul class="cms" id="cms"></ul>
+    </section>
+  </div>`;
+  S.comments = {};
+  api("GET", `comments/${id}`).then(c => { S.comments = c || {}; renderComments(); }).catch(() => {});
+  $("#cmNum").innerHTML = `<option value="">내 번호</option>` + rosterNums().map(n => {
+    const f = bookByNum(n); return `<option value="${n}">${n}번${f ? " " + esc(f[1].author) : ""}</option>`;
+  }).join("");
+  $("#cmText").oninput = e => $("#cmCnt").textContent = `${e.target.value.length} / 100자`;
+  $("#cmGo").onclick = async () => {
+    const num = +$("#cmNum").value, text = $("#cmText").value.trim();
+    if (!num){ toast("내 번호를 골라 주세요"); return; }
+    if (+b.num === num){ toast("내 책에는 감상평을 쓸 수 없어요"); return; }
+    if (!text){ toast("감상평을 적어 주세요"); return; }
+    const f = bookByNum(num), cid = uid();
+    const c = { num, name: f ? f[1].author : "", text, created: Date.now() };
+    try { await api("PUT", `comments/${id}/${cid}`, c); S.comments[cid] = c;
+      $("#cmText").value = ""; $("#cmCnt").textContent = "0 / 100자"; renderComments(); toast("감상평을 남겼어요"); }
+    catch(e){ toast("남기지 못했어요. 다시 해 보세요"); }
+  };
+  $("#back").onclick = showShelf;
+  if (S.teacher){
+    $("#tEdit").onclick = () => openEditor(id, b);
+    $("#tNum").onclick = async () => {
+      const v = await ask({ title:"번호 바꾸기", text:`${b.author}의 번호를 적어 주세요.\n0번으로 바꾸면 예시 책이 돼요.`, input:{ mode:"numeric", value:b.num ? String(b.num) : "" }, ok:"바꾸기" });
+      if (v === false) return;
+      const n = +v.trim();
+      if (!Number.isInteger(n) || n < 0){ toast("숫자로 적어 주세요 (0번은 예시 책)"); return; }
+      try {
+        S.shelf = await api("GET","shelf") || {};
+        const other = bookByNum(n);
+        if (other && other[0] !== id){ toast(`${n}번은 이미 ${other[1].author}의 책이 있어요`); return; }
+        await api("PATCH", `books/${id}`, { num:n }); await api("PATCH", `shelf/${id}`, { num:n });
+        b.num = n; toast(`${n}번으로 바꿨어요`); openReader(id);
+      } catch(e){ toast("바꾸지 못했어요. 다시 해 보세요"); }
+    };
+    $("#tPdf").onclick = () => exportPDF([[id, b, S.imgs]], pdfName(b));
+    $("#tDel").onclick = async () => {
+      if (!await ask({ title:"책 지우기", text:`'${b.title}' (${b.author})\n지우면 되돌릴 수 없어요.`, ok:"지우기", danger:true })) return;
+      try { await api("DELETE",`imgs/${id}`); await api("DELETE",`comments/${id}`); await api("DELETE",`books/${id}`); await api("DELETE",`shelf/${id}`); toast("책을 지웠어요"); showShelf(); }
+      catch(e){ toast("지우지 못했어요. 다시 해 보세요"); }
+    };
+  }
+  $("#pv").onclick = () => turn(-1);
+  $("#nx").onclick = () => turn(1);
+  let x0 = null;
+  const st = $("#stage");
+  st.addEventListener("touchstart", e => x0 = e.touches[0].clientX, {passive:true});
+  st.addEventListener("touchend", e => { if (x0==null) return; const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 50) turn(dx < 0 ? 1 : -1); x0 = null; });
+  st.addEventListener("click", e => { const r = st.getBoundingClientRect(); turn(e.clientX - r.left > r.width/2 ? 1 : -1); });
+  showSlide(0);
+}
+function renderComments(){
+  const list = Object.entries(S.comments || {}).sort((a,b) => (b[1].created||0) - (a[1].created||0));
+  const el = $("#cms"); if (!el) return;
+  el.innerHTML = list.length ? list.map(([cid,c]) => {
+    const d = new Date(c.created || 0);
+    return `<li><div><b>${c.num}번 ${esc(c.name)}</b><small>${d.getMonth()+1}/${d.getDate()}</small><br>${esc(c.text)}</div>
+      ${S.teacher ? `<button class="x" data-cid="${cid}">지우기</button>` : ""}</li>`;
+  }).join("") : `<li style="color:var(--ink-soft)">아직 감상평이 없어요. 첫 번째로 남겨 보세요!</li>`;
+  el.querySelectorAll("[data-cid]").forEach(x => x.onclick = async () => {
+    if (!await ask({ title:"감상평 지우기", text:"이 감상평을 지울까요?", ok:"지우기", danger:true })) return;
+    try { await api("DELETE", `comments/${S.id}/${x.dataset.cid}`); delete S.comments[x.dataset.cid]; renderComments(); }
+    catch(e){ toast("지우지 못했어요"); }
+  });
+}
+function slideCount(){ return S.book.pages.length + 2; }
+function slideHTML(i){
+  const b = S.book, n = b.pages.length;
+  if (i === 0) return coverHTML(b, S.id, coverImg());
+  if (i === n+1) return `<div class="pg end"><div><b>끝</b><br><span>${esc(b.title)} · 지은이 ${esc(b.author)}</span></div></div>`;
+  const p = b.pages[i-1]; return pageHTML(p, S.imgs[p.pid], i, false);
+}
+function showSlide(i){
+  S.idx = i; $("#under").innerHTML = slideHTML(i); fitText($("#under"));
+  const n = S.book.pages.length;
+  $("#cnt").textContent = i===0 ? "표지" : i===n+1 ? "끝" : `${i} / ${n}`;
+  $("#pv").disabled = i===0; $("#nx").disabled = i===slideCount()-1;
+  if ($("#talk")) $("#talk").style.display = (i===slideCount()-1 && !S.isExample) ? "" : "none";
+}
+function turn(d){
+  const to = S.idx + d;
+  if (S.busy || to < 0 || to >= slideCount()) return;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches || !Element.prototype.animate){ showSlide(to); return; }
+  S.busy = true;
+  const leaf = $("#leaf"), under = $("#under");
+  leaf.style.display = "block";
+  let frames;
+  if (d > 0){ leaf.innerHTML = slideHTML(S.idx); under.innerHTML = slideHTML(to); fitText(leaf); fitText(under); frames = [{transform:"rotateY(0deg)"},{transform:"rotateY(-180deg)"}]; }
+  else { leaf.innerHTML = slideHTML(to); fitText(leaf); frames = [{transform:"rotateY(-180deg)"},{transform:"rotateY(0deg)"}]; }
+  leaf.animate(frames, { duration:650, easing:"cubic-bezier(.45,.05,.3,1)" }).onfinish = () => {
+    leaf.style.display = "none"; showSlide(to); S.busy = false;
+  };
+}
+document.addEventListener("keydown", e => {
+  if (S.view !== "read") return;
+  if (e.key === "ArrowRight") turn(1);
+  if (e.key === "ArrowLeft") turn(-1);
+});
+window.addEventListener("beforeunload", () => { if (pending) flushSave(); });
+
+showShelf();
 </script>
 </body>
 </html>
