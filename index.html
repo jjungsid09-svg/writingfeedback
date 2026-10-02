@@ -543,6 +543,10 @@ function renderTeacherHome(){
     <div class="card">
       <h2>주제 목록</h2>
       <div id="teacherTopicBox" class="loading">불러오는 중...</div>
+      <details id="closedTopicsDetails" style="margin-top:14px;display:none;">
+        <summary style="cursor:pointer;color:var(--muted);font-size:14px;font-weight:700;">🔒 닫힌 주제 보기</summary>
+        <div id="closedTopicBox" style="margin-top:10px;"></div>
+      </details>
     </div>
     <div class="card">
       <h2>👥 학급 설정</h2>
@@ -661,7 +665,10 @@ function loadTeacherTopics(){
     if(!box) return;
     if(!ids.length){ box.innerHTML = `<div class="empty">주제를 추가해주세요.</div>`; return; }
     const today = todayStr();
-    box.innerHTML = ids.map(id => {
+    const openIds = ids.filter(id => topics[id].open !== false);
+    const closedIds = ids.filter(id => topics[id].open === false);
+
+    function topicRowHtml(id){
       const d = topicDateStr(topics[id]);
       const dateBadge = d === today ? `<span class="badge ok">오늘 ${esc(d)}</span>` : `<span class="badge wait">${esc(d)}</span>`;
       const isOpen = topics[id].open !== false;
@@ -676,14 +683,29 @@ function loadTeacherTopics(){
         </div>
       </div>
     `;
-    }).join('');
-    box.querySelectorAll('.topic-item').forEach(el => {
+    }
+
+    box.innerHTML = openIds.length ? openIds.map(topicRowHtml).join('') : `<div class="empty">진행 중인 주제가 없어요.</div>`;
+
+    const closedDetails = document.getElementById('closedTopicsDetails');
+    const closedBox = document.getElementById('closedTopicBox');
+    if(closedIds.length){
+      closedDetails.style.display = 'block';
+      closedDetails.querySelector('summary').textContent = `🔒 닫힌 주제 보기 (${closedIds.length})`;
+      closedBox.innerHTML = closedIds.map(topicRowHtml).join('');
+    } else {
+      closedDetails.style.display = 'none';
+      closedBox.innerHTML = '';
+    }
+
+    const allCells = [...box.querySelectorAll('.topic-item'), ...closedBox.querySelectorAll('.topic-item')];
+    allCells.forEach(el => {
       el.onclick = (e) => {
         if(e.target.closest('.del-x') || e.target.closest('[data-toggle]')) return;
         state.topicId = el.dataset.id; state.view='teacherTopic'; render();
       };
     });
-    box.querySelectorAll('[data-toggle]').forEach(btn => {
+    [...box.querySelectorAll('[data-toggle]'), ...closedBox.querySelectorAll('[data-toggle]')].forEach(btn => {
       btn.onclick = (e) => {
         e.stopPropagation();
         const topicId = btn.dataset.toggle;
@@ -694,7 +716,7 @@ function loadTeacherTopics(){
         });
       };
     });
-    box.querySelectorAll('.del-x').forEach(btn => {
+    [...box.querySelectorAll('.del-x'), ...closedBox.querySelectorAll('.del-x')].forEach(btn => {
       btn.onclick = (e) => {
         e.stopPropagation();
         if(btn.dataset.confirming === '1'){
