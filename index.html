@@ -61,7 +61,7 @@
   .loading{color:var(--muted);font-size:14px;}
   .empty{color:var(--muted);text-align:center;padding:30px 0;font-size:14px;}
   .rec-card{border-left:4px solid var(--primary);}
-  .rec-sparkle-btn{
+  button.rec-sparkle-btn{
     background:linear-gradient(135deg,#ffd6e8,#d6e8ff,#e4d6ff,#fff3c4);
     background-size:300% 300%;
     animation:pastelShift 7s ease infinite;
@@ -78,6 +78,10 @@
   }
   @keyframes pastelShift{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
   @keyframes shineSweep{0%{left:-150%;}60%{left:150%;}100%{left:150%;}}
+  button.rec-sparkle-btn:hover{
+    background:linear-gradient(135deg,#ffd6e8,#d6e8ff,#e4d6ff,#fff3c4);
+    background-size:300% 300%;
+  }
   .pending-card{border-left:4px solid #c0392b;background:#fff5f5;}
   .pending-card h2{color:#c0392b;}
   .pending-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border:1px solid #f3caca;border-radius:9px;margin-bottom:8px;cursor:pointer;background:#fff;}
