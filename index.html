@@ -61,6 +61,19 @@
   .loading{color:var(--muted);font-size:14px;}
   .empty{color:var(--muted);text-align:center;padding:30px 0;font-size:14px;}
   .rec-card{border-left:4px solid var(--primary);}
+  .rec-highlight-card{
+    background:linear-gradient(135deg,#7c5cff,#ff7ab8,#ffb648);
+    background-size:200% 200%;
+    animation:recGradient 6s ease infinite;
+    color:#fff;border:none;cursor:pointer;display:flex;align-items:center;gap:14px;
+    box-shadow:0 6px 18px rgba(124,92,255,.35);
+  }
+  @keyframes recGradient{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
+  .rec-highlight-card .rec-emoji{font-size:34px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.15));}
+  .rec-highlight-card .rec-title{font-weight:800;font-size:17px;}
+  .rec-highlight-card .rec-sub{font-size:13px;opacity:.95;margin-top:2px;}
+  .rec-topic-header{font-weight:800;font-size:15px;margin:18px 0 8px;color:var(--primary);}
+  .rec-topic-header:first-child{margin-top:0;}
   .pending-card{border-left:4px solid #c0392b;background:#fff5f5;}
   .pending-card h2{color:#c0392b;}
   .pending-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border:1px solid #f3caca;border-radius:9px;margin-bottom:8px;cursor:pointer;background:#fff;}
@@ -176,8 +189,14 @@ function renderTopicList(){
       <h2>📚 이번 주제는?</h2>
       <div id="topicListBox" class="loading">불러오는 중...</div>
     </div>
+    <div class="card rec-highlight-card" id="goRecommended">
+      <div class="rec-emoji">🌟</div>
+      <div>
+        <div class="rec-title">친구들이 쓴 멋진 글 구경하기</div>
+        <div class="rec-sub" id="recCountText">불러오는 중...</div>
+      </div>
+    </div>
     <div class="card" style="display:flex;gap:10px;flex-wrap:wrap;">
-      <button class="btn secondary" id="goRecommended" style="flex:1;">🌟 친구들의 추천 글 보기</button>
       <button class="btn secondary" id="goMyWritings" style="flex:1;">📝 내가 쓴 글 보기</button>
     </div>
     <div id="pendingCardSlot"></div>
@@ -189,17 +208,30 @@ function renderTopicList(){
 
   Promise.all([
     db.ref(`${DB_ROOT}/topics`).once('value'),
-    student ? db.ref(`${DB_ROOT}/submissions`).once('value') : Promise.resolve({val:()=>({})})
+    db.ref(`${DB_ROOT}/submissions`).once('value')
   ]).then(([topicSnap, subSnap]) => {
     const topics = topicSnap.val() || {};
     const subsAll = subSnap.val() || {};
+
+    let recCount = 0;
+    Object.values(subsAll).forEach(topicSubs => {
+      Object.values(topicSubs).forEach(s => { if(s.teacherApproved && !s.optOut) recCount++; });
+    });
+    const recCountEl = document.getElementById('recCountText');
+    if(recCountEl){
+      recCountEl.textContent = recCount > 0 ? `${recCount}개 있어요 — 눌러서 구경해보세요!` : '아직은 없지만, 곧 생길 거예요!';
+    }
     const statusMap = new Map(); // topicId -> 'sent' | 'done'
+    const unseenDoneIds = []; // 홈 화면 "완료된 글" 카드에는 아직 확인 안 한 것만
 
     if(student){
       Object.keys(subsAll).forEach(topicId => {
         Object.values(subsAll[topicId]).forEach(s => {
           if(sameStudent(s, student)){
-            if(s.teacherDone) statusMap.set(topicId, 'done');
+            if(s.teacherDone){
+              statusMap.set(topicId, 'done');
+              if(!s.studentSeenDone) unseenDoneIds.push(topicId);
+            }
             else if(s.teacherSent) statusMap.set(topicId, 'sent');
           }
         });
@@ -228,7 +260,7 @@ function renderTopicList(){
     }
 
     const sentIds = [...statusMap.entries()].filter(([,v]) => v==='sent').map(([k])=>k);
-    const doneIds = [...statusMap.entries()].filter(([,v]) => v==='done').map(([k])=>k);
+    const doneIds = unseenDoneIds;
     const slot = document.getElementById('pendingCardSlot');
     let slotHtml = '';
     if(sentIds.length){
@@ -308,6 +340,10 @@ function renderWrite(){
       if(sameStudent(s, state.student)){ existing = s; existingId = id; }
     });
     state.currentSubId = existingId;
+
+    if(existing && existing.teacherDone && !existing.studentSeenDone){
+      db.ref(`${DB_ROOT}/submissions/${state.topicId}/${existingId}`).update({studentSeenDone: true});
+    }
 
     app.innerHTML = `
       <button class="back" id="backBtn">‹ 이전으로</button>
@@ -490,23 +526,34 @@ function renderRecommended(){
   ]).then(([topicSnap, subSnap]) => {
     const topics = topicSnap.val() || {};
     const subs = subSnap.val() || {};
-    let items = [];
+
+    // 주제별로 그룹화, 주제는 최신순, 그 안의 글은 최신순
+    const byTopic = {}; // topicId -> [items]
     Object.keys(subs).forEach(topicId => {
-      Object.entries(subs[topicId]).forEach(([subId, s]) => {
+      Object.values(subs[topicId]).forEach(s => {
         if(s.teacherApproved && !s.optOut){
-          items.push({...s, topicTitle: topics[topicId] ? topics[topicId].title : ''});
+          if(!byTopic[topicId]) byTopic[topicId] = [];
+          byTopic[topicId].push(s);
         }
       });
     });
-    items.sort((a,b)=> b.createdAt - a.createdAt);
+    const topicIds = Object.keys(byTopic).sort((a,b)=> (topics[b]?.createdAt||0)-(topics[a]?.createdAt||0));
+
     const box = document.getElementById('recBox');
-    if(!items.length){ box.innerHTML = `<div class="empty">아직 추천된 글이 없어요.</div>`; return; }
-    box.innerHTML = items.map(s => `
-      <div class="sub-item rec-card">
-        <div class="meta">${esc(s.topicTitle)} · ${esc(s.number)}번 ${esc(s.name)}</div>
-        <div class="text">${esc(s.text)}</div>
-      </div>
-    `).join('');
+    if(!topicIds.length){ box.innerHTML = `<div class="empty">아직 추천된 글이 없어요.</div>`; return; }
+    box.innerHTML = topicIds.map(topicId => {
+      const items = byTopic[topicId].sort((a,b)=> b.createdAt - a.createdAt);
+      const title = topics[topicId] ? topics[topicId].title : '(삭제된 주제)';
+      return `
+        <div class="rec-topic-header">📌 ${esc(title)}</div>
+        ${items.map(s => `
+          <div class="sub-item rec-card">
+            <div class="meta">${esc(s.number)}번 ${esc(s.name)}</div>
+            <div class="text">${esc(s.text)}</div>
+          </div>
+        `).join('')}
+      `;
+    }).join('');
   });
 }
 
@@ -828,7 +875,8 @@ function renderTeacherTopic(){
         b.onclick = () => {
           const subId = b.dataset.done;
           const isDone = subs[subId].teacherDone;
-          db.ref(`${DB_ROOT}/submissions/${state.topicId}/${subId}`).update({teacherDone: !isDone}).then(()=>{
+          const payload = isDone ? {teacherDone: false} : {teacherDone: true, studentSeenDone: false};
+          db.ref(`${DB_ROOT}/submissions/${state.topicId}/${subId}`).update(payload).then(()=>{
             showMsg(isDone ? '완료 표시를 취소했어요.' : '학생에게 완료를 알렸어요.');
             renderTeacherTopic();
           });
