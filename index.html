@@ -97,6 +97,8 @@
   .roster-empty .roster-num{color:var(--muted);}
   .roster-submitted{background:#fff2e0;border-color:#f3d9b0;}
   .roster-submitted .roster-mark{color:#e08a2c;}
+  .roster-draft{background:#e8f1ff;border-color:#c9dcf7;}
+  .roster-draft .roster-mark{color:#4f7cff;}
   .roster-done{background:#e4f7ec;border-color:#cdebd8;}
   .roster-done .roster-mark{color:#2fa86b;}
   .roster-absent{background:#2b2f3a;border-color:#2b2f3a;}
@@ -228,6 +230,7 @@ function renderTopicList(){
               if(!s.studentSeenDone) unseenDoneIds.push(topicId);
             }
             else if(s.teacherSent) statusMap.set(topicId, 'sent');
+            else if(s.draftText) statusMap.set(topicId, 'draft');
           }
         });
       });
@@ -241,7 +244,7 @@ function renderTopicList(){
     else {
     box.innerHTML = ids.map(id => {
       const st = statusMap.get(id);
-      const badge = st === 'done' ? '<span class="badge ok">완료!</span>' : st === 'sent' ? '<span class="badge pending">첨삭 도착</span>' : '';
+      const badge = st === 'done' ? '<span class="badge ok">완료!</span>' : st === 'sent' ? '<span class="badge pending">첨삭 도착</span>' : st === 'draft' ? '<span class="badge wait">💾 임시저장</span>' : '';
       return `
       <div class="topic-item" data-id="${id}">
         <div class="title">${esc(topics[id].title)} ${badge}</div>
@@ -348,13 +351,16 @@ function renderWrite(){
         ${topic.description ? `<div class="notice" style="color:var(--text);border-style:solid;white-space:pre-wrap;">📋 ${esc(topic.description)}</div>` : ''}
         ${existing && existing.teacherDone ? `<div class="fb-teacher" style="background:#f2faf5;border-color:#cdebd8;color:#1c3d2a;"><span class="fb-label" style="color:#2fa86b;">🎉 완료!</span>선생님이 확인했어요. 정말 잘 썼어요, 더 안 고쳐도 돼요!</div>` : ''}
         ${existing && !existing.teacherDone && existing.teacherSent && existing.teacherMarkup ? `<div class="fb-teacher"><span class="fb-label">👩‍🏫 선생님 피드백 (빨간 글씨 = 고칠 부분)</span>${existing.teacherMarkup}</div>` : ''}
-        ${existing ? `<div class="notice">✏️ 이미 제출한 글이 있어요. 아래에서 고쳐서 다시 제출할 수 있어요.</div>` : ''}
-        <textarea id="writeArea" placeholder="이곳에 글을 써주세요...">${existing ? esc(existing.text) : ''}</textarea>
+        ${existing && existing.submitted === false ? `<div class="notice">💾 일단 보내기로 저장해 둔 글이에요. 다 쓰면 <b>선생님께 제출하기</b>를 눌러야 선생님께 가요.</div>` : (existing && existing.draftText ? `<div class="notice">💾 고치던 글이 임시저장돼 있어요. 다 고치면 <b>수정해서 다시 제출하기</b>를 눌러주세요.</div>` : (existing ? `<div class="notice">✏️ 이미 제출한 글이 있어요. 아래에서 고쳐서 다시 제출할 수 있어요.</div>` : ''))}
+        <textarea id="writeArea" placeholder="이곳에 글을 써주세요...">${existing ? esc(existing.draftText ? existing.draftText : (existing.text || '')) : ''}</textarea>
         <div class="checkbox-row">
           <input type="checkbox" id="optOutBox" ${existing && existing.optOut ? 'checked' : ''}>
           <label style="margin:0;" for="optOutBox">내 글 추천금지 (친구들에게 공개되지 않아요)</label>
         </div>
-        <button class="btn" id="submitBtn">${existing ? '수정해서 다시 제출하기' : '제출하기'}</button>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn secondary" id="draftBtn" style="flex:1;">💾 일단 보내기 (임시저장)</button>
+          <button class="btn" id="submitBtn" style="flex:1;">${existing && existing.submitted !== false ? '수정해서 다시 제출하기' : '선생님께 제출하기'}</button>
+        </div>
         <div id="submitStatus" style="margin-top:10px;"></div>
       </div>
     `;
@@ -374,6 +380,38 @@ function renderWrite(){
         autoGrow(this);
       }
     });
+    document.getElementById('draftBtn').onclick = async () => {
+      const raw = document.getElementById('writeArea').value;
+      if(!raw.trim()){ showMsg('글을 입력해주세요.'); return; }
+      const text = raw.replace(/\n+$/,'');
+      const optOut = document.getElementById('optOutBox').checked;
+      const btn = document.getElementById('draftBtn');
+      btn.disabled = true;
+      try {
+        const now = Date.now();
+        if(state.currentSubId){
+          const upd = { draftText: text, draftUpdatedAt: now, optOut };
+          if(existing && existing.submitted === false) upd.updatedAt = now;
+          await db.ref(`${DB_ROOT}/submissions/${state.topicId}/${state.currentSubId}`).update(upd);
+          if(existing){ existing.draftText = text; existing.optOut = optOut; }
+        } else {
+          const draftPayload = {
+            name: state.student.name, number: state.student.number,
+            text: '', draftText: text, draftUpdatedAt: now, submitted: false,
+            teacherApproved: false, optOut, createdAt: now, updatedAt: now
+          };
+          const ref = await db.ref(`${DB_ROOT}/submissions/${state.topicId}`).push(draftPayload);
+          state.currentSubId = ref.key;
+          existing = draftPayload;
+        }
+        showMsg('임시저장했어요! 다 쓰면 "선생님께 제출하기"를 눌러주세요.');
+      } catch(e){
+        console.error(e);
+        showMsg('저장 중 문제가 생겼어요. 다시 시도해주세요.');
+      } finally {
+        btn.disabled = false;
+      }
+    };
     document.getElementById('submitBtn').onclick = async () => {
       const raw = document.getElementById('writeArea').value;
       if(!raw.trim()){ showMsg('글을 입력해주세요.'); return; }
@@ -388,7 +426,13 @@ function renderWrite(){
           name: state.student.name,
           number: state.student.number,
           text,
+          submitted: true,
+          draftText: null,
+          draftUpdatedAt: null,
           teacherApproved: existing ? !!existing.teacherApproved : false,
+          prevTeacherMarkup: existing
+            ? ((existing.teacherSent && existing.teacherMarkup) ? existing.teacherMarkup : (existing.prevTeacherMarkup || null))
+            : null,
           teacherMarkup: null,
           teacherCorrectedText: null,
           teacherSent: false,
@@ -492,12 +536,17 @@ function renderMyWritings(){
       if(s.optOut) badge = `<span class="badge wait">추천 금지</span>`;
       else if(s.teacherApproved) badge = `<span class="badge ok">추천 승인됨</span>`;
       const doneBadge = s.teacherDone ? `<span class="badge ok">완료!</span>` : '';
+      const isDraftOnly = s.submitted === false;
+      const draftBadge = isDraftOnly ? `<span class="badge wait">💾 임시저장 (아직 제출 안 함)</span>` : '';
+      const shownText = isDraftOnly ? (s.draftText || '') : s.text;
+      const draftNote = (!isDraftOnly && s.draftText) ? `<div class="notice" style="margin-top:8px;">💾 고치던 글이 임시저장돼 있어요. 수정하기에서 이어서 쓸 수 있어요.</div>` : '';
       return `
         <div class="sub-item">
-          <div class="meta">${esc(s.topicTitle)} ${badge} ${doneBadge}</div>
-          <div class="text">${esc(s.text)}</div>
+          <div class="meta">${esc(s.topicTitle)} ${badge} ${doneBadge} ${draftBadge}</div>
+          <div class="text">${esc(shownText)}</div>
+          ${draftNote}
           ${s.teacherDone ? `<div class="fb-teacher" style="background:#f2faf5;border-color:#cdebd8;color:#1c3d2a;"><span class="fb-label" style="color:#2fa86b;">🎉 완료!</span>선생님이 확인했어요. 정말 잘 썼어요, 더 안 고쳐도 돼요!</div>` : (s.teacherSent && s.teacherMarkup ? `<div class="fb-teacher"><span class="fb-label">👩‍🏫 선생님 피드백</span>${s.teacherMarkup}</div>` : '')}
-          <button class="btn small" data-edit="${s.topicId}" style="margin-top:10px;">이 글 수정하기</button>
+          <button class="btn small" data-edit="${s.topicId}" style="margin-top:10px;">${isDraftOnly ? '이어서 쓰기' : '이 글 수정하기'}</button>
         </div>
       `;
     }).join('');
@@ -679,6 +728,7 @@ function renderTeacherHome(){
       Object.keys(subsAll).forEach(topicId => {
         const topic = topics[topicId] || { title: '(삭제된 주제)' };
         Object.values(subsAll[topicId]).forEach(s => {
+          if(s.submitted === false) return; // 아직 제출 안 한 임시저장은 제외
           const key = `${String(s.number).padStart(3,'0')}_${s.name}`;
           if(!byStudent[key]) byStudent[key] = { number: s.number, name: s.name, items: [] };
           byStudent[key].items.push({
@@ -826,7 +876,12 @@ function renderTeacherTopic(){
         <div id="rosterBox" class="loading">불러오는 중...</div>
       </div>
       <div class="card">
+        <h2 style="font-size:16px;margin-bottom:10px;">📮 제출한 글</h2>
         <div id="subsBox" class="loading">불러오는 중...</div>
+      </div>
+      <div class="card" id="draftCard" style="display:none;">
+        <h2 id="draftTitle" style="font-size:16px;margin-bottom:10px;">✏️ 작성 중</h2>
+        <div id="draftBox"></div>
       </div>
     `;
     document.getElementById('backBtn').onclick = () => { state.view='teacherHome'; render(); };
@@ -837,7 +892,10 @@ function renderTeacherTopic(){
       const statusByNumber = {};
       Object.values(subs).forEach(s => {
         const num = String(s.number).trim();
-        if(s.teacherDone) statusByNumber[num] = 'done';
+        if(s.submitted === false){
+          if(!statusByNumber[num]) statusByNumber[num] = 'draft';
+        }
+        else if(s.teacherDone) statusByNumber[num] = 'done';
         else if(statusByNumber[num] !== 'done') statusByNumber[num] = 'submitted';
       });
       const absent = topic.absent || {};
@@ -849,11 +907,12 @@ function renderTeacherTopic(){
           ${rosterNumbers.map(n => {
             const isAbsent = !!absent[n];
             const st = statusByNumber[String(n)];
-            const cls = isAbsent ? 'roster-absent' : st === 'done' ? 'roster-done' : st === 'submitted' ? 'roster-submitted' : 'roster-empty';
-            const mark = isAbsent ? '' : st === 'done' ? '○' : st === 'submitted' ? '△' : '';
+            const cls = isAbsent ? 'roster-absent' : st === 'done' ? 'roster-done' : st === 'submitted' ? 'roster-submitted' : st === 'draft' ? 'roster-draft' : 'roster-empty';
+            const mark = isAbsent ? '' : st === 'done' ? '○' : st === 'submitted' ? '△' : st === 'draft' ? '✎' : '';
             return `<div class="roster-cell ${cls}" data-num="${n}" title="눌러서 결석 표시/해제"><div class="roster-num">${n}</div><div class="roster-mark">${mark}</div></div>`;
           }).join('')}
         </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:10px;">△ 제출 · ○ 완료 · ✎ 일단 보내기(임시저장) · 까만 칸 = 결석 (칸을 눌러서 표시/해제)</div>
       `;
       document.getElementById('rosterBox').querySelectorAll('.roster-cell').forEach(cell => {
         cell.onclick = () => {
@@ -863,7 +922,36 @@ function renderTeacherTopic(){
         };
       });
 
-      const ids = Object.keys(subs).sort((a,b)=> (subs[b].updatedAt||subs[b].createdAt) - (subs[a].updatedAt||subs[a].createdAt));
+      const draftIds = Object.keys(subs).filter(id => subs[id].submitted === false)
+        .sort((a,b)=> (subs[b].draftUpdatedAt||subs[b].updatedAt||0) - (subs[a].draftUpdatedAt||subs[a].updatedAt||0));
+      const draftCard = document.getElementById('draftCard');
+      const draftBox = document.getElementById('draftBox');
+      if(draftIds.length){
+        draftCard.style.display = 'block';
+        document.getElementById('draftTitle').textContent = `✏️ 작성 중 · 일단 보내기만 한 글 (${draftIds.length})`;
+        draftBox.innerHTML = draftIds.map(id => {
+          const s = subs[id];
+          return `<div class="sub-item"><div class="meta">${esc(s.number)}번 ${esc(s.name)} <span class="badge sent">💾 임시저장 · 아직 제출 안 함</span></div><div class="text">${esc(s.draftText || '')}</div><div style="margin-top:8px;display:flex;justify-content:flex-end;"><button type="button" class="del-x" data-deldraft="${id}" title="이 글 삭제">×</button></div></div>`;
+        }).join('');
+        draftBox.querySelectorAll('[data-deldraft]').forEach(btn => {
+          btn.onclick = () => {
+            if(btn.dataset.confirming === '1'){
+              db.ref(`${DB_ROOT}/submissions/${state.topicId}/${btn.dataset.deldraft}`).remove().then(()=>{ showMsg('글을 삭제했어요.'); renderTeacherTopic(); });
+            } else {
+              document.querySelectorAll('.del-x.confirming').forEach(b => { b.classList.remove('confirming'); b.textContent='×'; b.dataset.confirming='0'; });
+              btn.dataset.confirming = '1';
+              btn.classList.add('confirming');
+              btn.textContent = '삭제?';
+              setTimeout(()=>{ if(btn.dataset.confirming==='1'){ btn.textContent='×'; btn.classList.remove('confirming'); btn.dataset.confirming='0'; } }, 3000);
+            }
+          };
+        });
+      } else {
+        draftCard.style.display = 'none';
+        draftBox.innerHTML = '';
+      }
+
+      const ids = Object.keys(subs).filter(id => subs[id].submitted !== false).sort((a,b)=> (subs[b].updatedAt||subs[b].createdAt) - (subs[a].updatedAt||subs[a].createdAt));
       const box = document.getElementById('subsBox');
       if(!ids.length){ box.innerHTML = `<div class="empty">아직 제출한 학생이 없어요.</div>`; return; }
       box.innerHTML = ids.map(id => {
@@ -873,10 +961,14 @@ function renderTeacherTopic(){
         else if(s.teacherApproved) badge = `<span class="badge ok">추천 승인됨</span>`;
         const sentBadge = s.teacherSent ? `<span class="badge sent">첨삭 전송됨</span>` : '';
         const doneBadge = s.teacherDone ? `<span class="badge ok">완료!</span>` : '';
+        const editingBadge = s.draftText ? `<span class="badge sent">💾 수정 중(임시저장)</span>` : '';
         return `
           <div class="sub-item">
-            <div class="meta">${esc(s.number)}번 ${esc(s.name)} ${badge} ${sentBadge} ${doneBadge}</div>
+            <div class="meta">${esc(s.number)}번 ${esc(s.name)} ${badge} ${sentBadge} ${doneBadge} ${editingBadge}</div>
             <div class="text">${esc(s.text)}</div>
+            ${s.draftText ? `<details style="margin-top:6px;"><summary style="cursor:pointer;color:var(--primary);font-size:13px;font-weight:700;">💾 학생이 고치는 중인 임시저장본 보기</summary><div class="text" style="margin-top:6px;padding:10px;background:var(--bg);border-radius:8px;">${esc(s.draftText)}</div></details>` : ''}
+            ${(s.teacherSent && s.teacherMarkup) ? `<details style="margin-top:6px;"><summary style="cursor:pointer;color:var(--primary);font-size:13px;font-weight:700;">📝 내가 보낸 첨삭 보기</summary><div class="fb-teacher" style="margin-top:6px;padding:12px;border-radius:8px;">${s.teacherMarkup}</div></details>` : ''}
+            ${s.prevTeacherMarkup ? `<details style="margin-top:6px;"><summary style="cursor:pointer;color:var(--muted);font-size:13px;font-weight:700;">🕘 학생이 고치기 전에 보낸 첨삭 보기</summary><div class="fb-teacher" style="margin-top:6px;padding:12px;border-radius:8px;">${s.prevTeacherMarkup}</div></details>` : ''}
             <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
               <button class="btn small" data-markup="${id}">${s.teacherSent ? '다시 첨삭하기' : '첨삭하기'}</button>
               <button class="btn small secondary" data-done="${id}">${s.teacherDone ? '완료 취소' : '✅ 완료로 표시'}</button>
