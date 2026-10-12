@@ -951,18 +951,27 @@ function renderTeacherTopic(){
         draftBox.innerHTML = '';
       }
 
-      const ids = Object.keys(subs).filter(id => subs[id].submitted !== false).sort((a,b)=> (subs[b].updatedAt||subs[b].createdAt) - (subs[a].updatedAt||subs[a].createdAt));
+      const rankOf = s => s.teacherDone ? 2 : (s.teacherSent ? 1 : 0);
+      const ids = Object.keys(subs).filter(id => subs[id].submitted !== false).sort((a,b)=>
+        rankOf(subs[a]) - rankOf(subs[b]) ||
+        (subs[b].updatedAt||subs[b].createdAt) - (subs[a].updatedAt||subs[a].createdAt));
+      const groupCount = [0,0,0]; ids.forEach(id => { groupCount[rankOf(subs[id])]++; });
+      const groupLabel = ['✏️ 첨삭할 글','📤 첨삭 보냄 · 학생 수정 기다리는 중','✅ 완료'];
+      const groupColor = ['#c0392b','#4f7cff','#2fa86b'];
       const box = document.getElementById('subsBox');
       if(!ids.length){ box.innerHTML = `<div class="empty">아직 제출한 학생이 없어요.</div>`; return; }
-      box.innerHTML = ids.map(id => {
+      box.innerHTML = ids.map((id, idx) => {
         const s = subs[id];
+        const rk = rankOf(s);
+        const isGroupStart = idx === 0 || rankOf(subs[ids[idx-1]]) !== rk;
+        const groupHeader = isGroupStart ? `<div style="font-weight:800;font-size:13px;color:${groupColor[rk]};margin:14px 0 6px;">${groupLabel[rk]} (${groupCount[rk]})</div>` : '';
         let badge = '';
         if(s.optOut) badge = `<span class="badge wait">추천 금지</span>`;
         else if(s.teacherApproved) badge = `<span class="badge ok">추천 승인됨</span>`;
         const sentBadge = s.teacherSent ? `<span class="badge sent">첨삭 전송됨</span>` : '';
         const doneBadge = s.teacherDone ? `<span class="badge ok">완료!</span>` : '';
         const editingBadge = s.draftText ? `<span class="badge sent">💾 수정 중(임시저장)</span>` : '';
-        return `
+        return `${groupHeader}
           <div class="sub-item">
             <div class="meta">${esc(s.number)}번 ${esc(s.name)} ${badge} ${sentBadge} ${doneBadge} ${editingBadge}</div>
             <div class="text">${esc(s.text)}</div>
