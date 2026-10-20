@@ -862,7 +862,10 @@ function loadTeacherTopics(){
 }
 
 /* ---------------- 선생님: 주제별 제출 글 + 추천 승인 + 첨삭 진입 ---------------- */
+let liveRef = null, liveCb = null;
+function stopLive(){ if(liveRef && liveCb){ liveRef.off('value', liveCb); } liveRef = null; liveCb = null; }
 function renderTeacherTopic(){
+  stopLive();
   Promise.all([
     db.ref(`${DB_ROOT}/topics/${state.topicId}`).once('value'),
     db.ref(`${DB_ROOT}/settings/roster`).once('value')
@@ -884,7 +887,25 @@ function renderTeacherTopic(){
         <div id="draftBox"></div>
       </div>
     `;
-    document.getElementById('backBtn').onclick = () => { state.view='teacherHome'; render(); };
+    document.getElementById('backBtn').onclick = () => { stopLive(); state.view='teacherHome'; render(); };
+
+    // 학생이 제출/저장하면 새로고침 없이 바로 반영
+    const myTopicId = state.topicId;
+    let firstLive = true;
+    liveRef = db.ref(`${DB_ROOT}/submissions/${myTopicId}`);
+    liveCb = () => {
+      if(firstLive){ firstLive = false; return; }
+      if(state.view !== 'teacherTopic' || state.topicId !== myTopicId) return;
+      if(document.querySelector('.del-x.confirming')) return;
+      const y = window.scrollY;
+      const openIdx = [...document.querySelectorAll('#subsBox details')].map((d,i)=>d.open?i:-1).filter(i=>i>=0);
+      renderTeacherTopic();
+      setTimeout(()=>{
+        document.querySelectorAll('#subsBox details').forEach((d,i)=>{ if(openIdx.includes(i)) d.open = true; });
+        window.scrollTo(0, y);
+      }, 400);
+    };
+    liveRef.on('value', liveCb);
 
     db.ref(`${DB_ROOT}/submissions/${state.topicId}`).once('value').then(subSnap => {
       const subs = subSnap.val() || {};
@@ -1165,6 +1186,7 @@ function renderTeacherMarkup(){
 
 /* ---------------- 라우터 ---------------- */
 function render(){
+  if(state.view!=='teacherTopic') stopLive();
   if(state.role==='student'){
     if(state.view==='topicList') renderTopicList();
     else if(state.view==='enterInfo') renderEnterInfo();
