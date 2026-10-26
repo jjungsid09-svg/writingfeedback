@@ -778,8 +778,22 @@ function renderTeacherHome(){
 }
 
 function loadTeacherTopics(){
-  db.ref(`${DB_ROOT}/topics`).once('value').then(snap => {
+  Promise.all([
+    db.ref(`${DB_ROOT}/topics`).once('value'),
+    db.ref(`${DB_ROOT}/submissions`).once('value')
+  ]).then(([snap, subsSnapAll]) => {
     const topics = snap.val() || {};
+    const allSubs = subsSnapAll.val() || {};
+    // 닫힌 주제용: 아직 완료 못 받은 학생 요약
+    function pendingHtml(id){
+      const list = Object.values(allSubs[id] || {});
+      if(!list.length) return '';
+      const pend = list.filter(s => !s.teacherDone)
+        .sort((a,b)=> Number(a.number) - Number(b.number));
+      if(!pend.length) return `<div style="font-size:12px;color:#2fa86b;font-weight:700;margin-top:4px;">✅ 제출한 학생 모두 완료</div>`;
+      const names = pend.map(s => `${esc(s.number)}번 ${esc(s.name)}${s.submitted === false ? '(임시저장)' : (s.teacherSent ? '(수정 대기)' : '')}`).join(', ');
+      return `<div style="font-size:12px;color:#c0392b;margin-top:4px;line-height:1.5;"><b>미완료 ${pend.length}명</b> · ${names}</div>`;
+    }
     const ids = Object.keys(topics).sort((a,b)=> topicDateStr(topics[a]).localeCompare(topicDateStr(topics[b])) || (topics[a].createdAt||0)-(topics[b].createdAt||0));
     const box = document.getElementById('teacherTopicBox');
     if(!box) return;
@@ -795,7 +809,7 @@ function loadTeacherTopics(){
       const openBadge = isOpen ? '' : '<span class="badge wait" style="background:#eee;color:#888;">닫힘</span>';
       return `
       <div class="topic-item" data-id="${id}">
-        <div class="title">${esc(topics[id].title)} ${dateBadge} ${openBadge}</div>
+        <div style="min-width:0;flex:1;padding-right:8px;"><div class="title">${esc(topics[id].title)} ${dateBadge} ${openBadge}</div>${isOpen ? '' : pendingHtml(id)}</div>
         <div style="display:flex;align-items:center;gap:8px;">
           <button type="button" class="btn small secondary" data-toggle="${id}">${isOpen ? '닫기' : '다시 열기'}</button>
           <span class="count">제출글 보기 ›</span>
